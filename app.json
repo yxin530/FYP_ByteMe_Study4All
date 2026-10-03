@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "AI Study4All",
+    "slug": "ai-study4all",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "aistudy4all",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "plugins": ["expo-router"],
+    "ios": { "supportsTablet": true },
+    "android": { "adaptiveIcon": { "backgroundColor": "#FFFFFF" } }
+  }
+}
