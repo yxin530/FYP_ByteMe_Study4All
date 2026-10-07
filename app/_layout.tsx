@@ -5,8 +5,10 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="dark" />
-      <Stack>
-        <Stack.Screen name="index" options={{ title: 'AI Study4All' }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
       </Stack>
     </>
   );

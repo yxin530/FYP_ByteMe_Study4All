@@ -1,0 +1,1 @@
+import { Text, View } from 'react-native'; export default function Profile(){return <View style={{flex:1,padding:24,backgroundColor:'#F8FAFC'}}><Text style={{fontSize:24,fontWeight:'700'}}>Profile & Settings</Text><Text style={{marginTop:20}}>Aina Rahman</Text><Text>aina.rahman@student.edu.my</Text></View>}

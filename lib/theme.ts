@@ -1,0 +1,1 @@
+export const theme = { colors: { blue: '#2563EB', bg: '#F8FAFC', surface: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', secondary: '#475569', muted: '#94A3B8', violet: '#7C3AED', violetSoft: '#EDE9FE', green: '#16A34A', red: '#DC2626' } };
