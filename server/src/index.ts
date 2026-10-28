@@ -1,21 +1,10 @@
-import express from 'express';
-import cors from 'cors';
+import { app } from './app.js';
 import { env } from './config/env.js';
-import featureRoutes from './routes/featureRoutes.js';
-import { errorHandler } from './middleware/errorHandler.js';
-import { notFound } from './middleware/notFound.js';
-import { requestIdMiddleware } from './middleware/requestId.js';
+import { logger } from './logging/logger.js';
 
-const app = express();
-app.use(cors({ origin: env.corsOrigin === '*' ? true : env.corsOrigin }));
-app.use(express.json({ limit: env.apiJsonLimit }));
-app.use(requestIdMiddleware);
-
-app.get('/health', (_req, res) =>
-  res.json({ status: 'ok', service: 'study4all-api', environment: env.nodeEnv }),
-);
-app.use('/api', featureRoutes);
-app.use(notFound);
-app.use(errorHandler);
-
-app.listen(env.port, () => console.log(`Study4All API listening on port ${env.port}`));
+app.listen(env.port, () => {
+  logger.info(`Study4All API listening on port ${env.port}`, {
+    port: env.port,
+    environment: env.nodeEnv,
+  });
+});

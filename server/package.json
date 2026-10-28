@@ -1,1 +1,23 @@
-{"name":"study4all-server","private":true,"type":"module","scripts":{"dev":"tsx src/index.ts"},"dependencies":{"express":"^5.1.0","cors":"^2.8.5","dotenv":"^16.4.7"},"devDependencies":{"tsx":"^4.19.2","typescript":"^5.9.2","@types/express":"^5.0.1"}}
+{
+  "name": "study4all-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsx scripts/verifyEndpoints.ts",
+    "test": "tsx --test test/**/*.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2"
+  }
+}
