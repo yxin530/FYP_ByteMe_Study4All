@@ -24,12 +24,34 @@ import {
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '@/lib/theme';
+import { useAuth } from '@/lib/authContext';
 
 type Screen = 'profile' | 'settings' | 'preferences';
 
 export default function Profile() {
+  const { user, logout: performLogout } = useAuth();
   const [screen, setScreen] = useState<Screen>('profile');
   const [logout, setLogout] = useState(false);
+
+  const displayName = user?.name || 'Aina Rahman';
+  const displayEmail = user?.email || 'aina.rahman@student.edu.my';
+  const displayLevel = user?.level ? `${user.level} · Computer Science` : 'Year 2 · Computer Science';
+  const initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'AR';
+
+  const handleConfirmLogout = async () => {
+    try {
+      await performLogout();
+    } finally {
+      setLogout(false);
+      router.replace('/(auth)/login');
+    }
+  };
 
   if (screen === 'settings') {
     return (
@@ -65,13 +87,13 @@ export default function Profile() {
         {/* User Identity Card */}
         <View style={s.identityCard}>
           <View style={s.avatar}>
-            <Text style={s.avatarText}>AR</Text>
+            <Text style={s.avatarText}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.name}>Aina Rahman</Text>
-            <Text style={s.email}>aina.rahman@student.edu.my</Text>
+            <Text style={s.name}>{displayName}</Text>
+            <Text style={s.email}>{displayEmail}</Text>
             <View style={s.gradeBadge}>
-              <Text style={s.gradeText}>Year 2 · Computer Science</Text>
+              <Text style={s.gradeText}>{displayLevel}</Text>
             </View>
           </View>
           <Pressable
@@ -142,7 +164,7 @@ export default function Profile() {
       {logout && (
         <LogoutModal
           cancel={() => setLogout(false)}
-          confirm={() => router.replace('/(auth)/login')}
+          confirm={handleConfirmLogout}
         />
       )}
     </SafeAreaView>

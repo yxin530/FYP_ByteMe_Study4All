@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:auth": "./server/node_modules/.bin/tsx --test test/auth.test.ts"
   },
   "dependencies": {
     "expo": "~57.0.0",
@@ -16,6 +17,7 @@
     "expo-constants": "~57.0.22",
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.24",
+    "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "lucide-react-native": "^1.52.0",
     "react": "19.3.0",

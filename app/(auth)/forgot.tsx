@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,19 +20,41 @@ import {
   Mail,
 } from 'lucide-react-native';
 import { theme } from '@/lib/theme';
+import { useAuth } from '@/lib/authContext';
+import { ApiClientError } from '@/lib/api';
 
 export default function Forgot() {
+  const { forgotPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!email.trim()) {
       setError('Please enter your student email address.');
       return;
     }
-    setError('');
-    setSubmitted(true);
+
+    try {
+      setLoading(true);
+      setError('');
+      await forgotPassword(email.trim());
+      setSubmitted(true);
+    } catch (err: any) {
+      if (err instanceof ApiClientError) {
+        if (err.code === 'VALIDATION_ERROR' && Array.isArray(err.details)) {
+          const firstIssue = err.details[0]?.message;
+          setError(firstIssue || err.message);
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError(err?.message || 'Failed to send recovery link. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,6 +72,7 @@ export default function Forgot() {
             style={s.backButton}
             onPress={() => router.back()}
             accessibilityLabel="Back to login"
+            disabled={loading}
           >
             <ChevronLeft size={24} color={theme.colors.text} />
           </Pressable>
@@ -98,14 +122,25 @@ export default function Forgot() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     style={s.input}
+                    editable={!loading}
                   />
                 </View>
 
                 {error ? <Text style={s.error}>{error}</Text> : null}
 
-                <Pressable style={s.submitButton} onPress={handleReset}>
+                <Pressable
+                  style={[s.submitButton, loading && s.disabledButton]}
+                  onPress={handleReset}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
                   <Text style={s.submitButtonText}>Send Recovery Link</Text>
                   <ArrowRight size={18} color="#FFFFFF" />
+                    </>
+                  )}
                 </Pressable>
               </>
             )}
@@ -202,6 +237,7 @@ const s = StyleSheet.create({
     color: theme.colors.red,
     fontSize: 12,
     marginTop: 8,
+    lineHeight: 16,
   },
   submitButton: {
     height: 50,
@@ -218,6 +254,9 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 15,
+  },
+  disabledButton: {
+    opacity: 0.65,
   },
   successBox: {
     alignItems: 'center',

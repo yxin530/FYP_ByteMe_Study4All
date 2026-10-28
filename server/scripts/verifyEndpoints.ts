@@ -4,7 +4,7 @@ import { app } from '../src/app.js';
 interface TestResult {
   name: string;
   passed: boolean;
-  expectedStatus: number;
+  expectedStatus: number | number[];
   actualStatus: number;
   response: unknown;
 }
@@ -30,7 +30,7 @@ async function runVerification() {
     name: string,
     path: string,
     options: RequestInit,
-    expectedStatus: number,
+    expectedStatus: number | number[],
     validate: (res: Response, body: any) => boolean,
   ) {
     try {
@@ -43,7 +43,9 @@ async function runVerification() {
         body = text;
       }
 
-      const statusMatch = res.status === expectedStatus;
+      const statusMatch = Array.isArray(expectedStatus)
+        ? expectedStatus.includes(res.status)
+        : res.status === expectedStatus;
       const customValidation = validate(res, body);
       const passed = statusMatch && customValidation;
 
@@ -132,35 +134,38 @@ async function runVerification() {
       body.error.details.length > 0,
   );
 
-  // 6. Valid auth request returns 501 FEATURE_NOT_IMPLEMENTED
+  // 6. Valid auth request reaches the authentication provider boundary.
   await check(
-    'POST /api/auth/login with valid body returns 501 FEATURE_NOT_IMPLEMENTED',
+    'POST /api/auth/login with valid body reaches Supabase auth boundary',
     '/api/auth/login',
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: 'test@example.com', password: 'password123' }),
     },
-    501,
-    (_res, body) => body?.error?.code === 'FEATURE_NOT_IMPLEMENTED',
+    [401, 503],
+    (_res, body) =>
+      body?.error?.code === 'AUTH_PROVIDER_ERROR' ||
+      body?.error?.code === 'AUTH_PROVIDER_NOT_CONFIGURED' ||
+      body?.error?.code === 'AUTH_PROVIDER_UNAVAILABLE',
   );
 
-  // 7. Grounded explanation validation: rejects ungrounded request (missing materialIds)
+  // 7. Protected routes reject requests without an access token before feature validation.
   await check(
-    'POST /api/learn/explain without materialIds returns 400 VALIDATION_ERROR',
+    'POST /api/learn/explain without access token returns 401 AUTHENTICATION_REQUIRED',
     '/api/learn/explain',
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ query: 'Explain osmosis' }),
     },
-    400,
-    (_res, body) => body?.error?.code === 'VALIDATION_ERROR',
+    401,
+    (_res, body) => body?.error?.code === 'AUTHENTICATION_REQUIRED',
   );
 
-  // 8. Grounded explanation validation: accepts valid grounded request payload
+  // 8. Protected routes reject valid-looking requests without an access token.
   await check(
-    'POST /api/learn/explain with valid materialIds returns 501 FEATURE_NOT_IMPLEMENTED',
+    'POST /api/learn/explain with valid materialIds returns 401 AUTHENTICATION_REQUIRED',
     '/api/learn/explain',
     {
       method: 'POST',
@@ -171,17 +176,17 @@ async function runVerification() {
         responseFormat: 'concise',
       }),
     },
-    501,
-    (_res, body) => body?.error?.code === 'FEATURE_NOT_IMPLEMENTED',
+    401,
+    (_res, body) => body?.error?.code === 'AUTHENTICATION_REQUIRED',
   );
 
-  // 9. Audio retrieval route parameter validation
+  // 9. Protected audio retrieval rejects requests without an access token.
   await check(
-    'GET /api/audio/:id returns 501 FEATURE_NOT_IMPLEMENTED',
+    'GET /api/audio/:id without access token returns 401 AUTHENTICATION_REQUIRED',
     '/api/audio/audio_uuid_123',
     { method: 'GET' },
-    501,
-    (_res, body) => body?.error?.code === 'FEATURE_NOT_IMPLEMENTED',
+    401,
+    (_res, body) => body?.error?.code === 'AUTHENTICATION_REQUIRED',
   );
 
   // Shutdown server

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,7 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
 import {
   ArrowRight,
-  BookOpen,
   ChevronLeft,
   GraduationCap,
   Lock,
@@ -21,26 +21,59 @@ import {
   User,
 } from 'lucide-react-native';
 import { theme } from '@/lib/theme';
+import { useAuth } from '@/lib/authContext';
+import { ApiClientError } from '@/lib/api';
 
 export default function Register() {
+  const { register } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [level, setLevel] = useState('Undergraduate');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
       setError('Please fill in all required fields.');
       return;
     }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
-    setError('');
-    router.replace('/(tabs)/home');
+
+    try {
+      setLoading(true);
+      setError('');
+      await register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        level,
+      });
+      router.replace('/(tabs)/home');
+    } catch (err: any) {
+      if (err instanceof ApiClientError) {
+        if (err.code === 'VALIDATION_ERROR' && Array.isArray(err.details)) {
+          const firstIssue = err.details[0]?.message;
+          setError(firstIssue || err.message);
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError(err?.message || 'Registration failed. Please check your details.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,6 +91,7 @@ export default function Register() {
             style={s.backButton}
             onPress={() => router.back()}
             accessibilityLabel="Back to login"
+            disabled={loading}
           >
             <ChevronLeft size={24} color={theme.colors.text} />
           </Pressable>
@@ -84,6 +118,7 @@ export default function Register() {
                 placeholder="e.g. Aina Rahman"
                 placeholderTextColor={theme.colors.muted}
                 style={s.input}
+                editable={!loading}
               />
             </View>
 
@@ -102,6 +137,7 @@ export default function Register() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 style={s.input}
+                editable={!loading}
               />
             </View>
 
@@ -113,6 +149,7 @@ export default function Register() {
                   key={lvl}
                   style={[s.levelChip, level === lvl && s.levelChipActive]}
                   onPress={() => setLevel(lvl)}
+                  disabled={loading}
                 >
                   <Text
                     style={[
@@ -127,7 +164,7 @@ export default function Register() {
             </View>
 
             {/* Password */}
-            <Text style={s.label}>Password</Text>
+            <Text style={s.label}>Password (minimum 6 characters)</Text>
             <View style={s.inputContainer}>
               <Lock size={18} color={theme.colors.muted} />
               <TextInput
@@ -140,6 +177,7 @@ export default function Register() {
                 placeholderTextColor={theme.colors.muted}
                 secureTextEntry
                 style={s.input}
+                editable={!loading}
               />
             </View>
 
@@ -157,15 +195,26 @@ export default function Register() {
                 placeholderTextColor={theme.colors.muted}
                 secureTextEntry
                 style={s.input}
+                editable={!loading}
               />
             </View>
 
             {error ? <Text style={s.error}>{error}</Text> : null}
 
             {/* Register CTA */}
-            <Pressable style={s.submitButton} onPress={handleRegister}>
-              <Text style={s.submitButtonText}>Create Account</Text>
-              <ArrowRight size={18} color="#FFFFFF" />
+            <Pressable
+              style={[s.submitButton, loading && s.disabledButton]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={s.submitButtonText}>Create Account</Text>
+                  <ArrowRight size={18} color="#FFFFFF" />
+                </>
+              )}
             </Pressable>
           </View>
 
@@ -289,6 +338,7 @@ const s = StyleSheet.create({
     color: theme.colors.red,
     fontSize: 12,
     marginTop: 10,
+    lineHeight: 16,
   },
   submitButton: {
     height: 50,
@@ -305,6 +355,9 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 15,
+  },
+  disabledButton: {
+    opacity: 0.65,
   },
   footer: {
     flexDirection: 'row',

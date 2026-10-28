@@ -9,20 +9,36 @@ import {
   View,
 } from 'react-native';
 import { theme } from '@/lib/theme';
+import { useAuth } from '@/lib/authContext';
 
 export default function Index() {
+  const { isAuthenticated, isLoading } = useAuth();
+
   useEffect(() => {
+    if (isLoading) return;
+
     const timer = setTimeout(() => {
-      router.replace('/(auth)/login');
-    }, 1200);
+      if (isAuthenticated) {
+        router.replace('/(tabs)/home');
+      } else {
+        router.replace('/(auth)/login');
+      }
+    }, 500);
+
     return () => clearTimeout(timer);
-  }, []);
+  }, [isAuthenticated, isLoading]);
+
+  const handlePress = () => {
+    if (isLoading) return;
+    if (isAuthenticated) {
+      router.replace('/(tabs)/home');
+    } else {
+      router.replace('/(auth)/login');
+    }
+  };
 
   return (
-    <Pressable
-      style={styles.page}
-      onPress={() => router.replace('/(auth)/login')}
-    >
+    <Pressable style={styles.page} onPress={handlePress}>
       <View style={styles.content}>
         <View style={styles.logoWrap}>
           <GraduationCap size={48} color={theme.colors.blue} strokeWidth={2} />

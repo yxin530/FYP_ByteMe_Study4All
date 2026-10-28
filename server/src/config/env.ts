@@ -1,4 +1,9 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+
+// Support running from either the repository root or the server directory.
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '../.env.local' });
+dotenv.config();
 
 function positiveInteger(value: string | undefined, fallback: number): number {
   const parsed = Number(value ?? fallback);

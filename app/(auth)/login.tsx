@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
 import {
+  AlertCircle,
   ArrowRight,
   Eye,
   EyeOff,
@@ -21,20 +23,60 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { theme } from '@/lib/theme';
+import { useAuth } from '@/lib/authContext';
+import { ApiClientError } from '@/lib/api';
 
 export default function Login() {
+  const { login, loginDemo, sessionExpired, dismissSessionExpired } = useAuth();
   const [email, setEmail] = useState('aina.rahman@student.edu.my');
   const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       setError('Please provide both your student email and password.');
       return;
     }
-    setError('');
-    router.replace('/(tabs)/home');
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      dismissSessionExpired();
+      await login({ email: email.trim(), password });
+      router.replace('/(tabs)/home');
+    } catch (err: any) {
+      if (err instanceof ApiClientError) {
+        if (err.code === 'VALIDATION_ERROR' && Array.isArray(err.details)) {
+          const firstIssue = err.details[0]?.message;
+          setError(firstIssue || err.message);
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError(err?.message || 'Login failed. Please check your credentials.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoAccess = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      dismissSessionExpired();
+      await loginDemo();
+      router.replace('/(tabs)/home');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,6 +100,16 @@ export default function Login() {
             </View>
           </View>
 
+          {/* Session Expiry Banner */}
+          {sessionExpired ? (
+            <View style={s.expiryBanner}>
+              <AlertCircle size={18} color={theme.colors.red} />
+              <Text style={s.expiryText}>
+                Your session has expired. Please sign in again to continue.
+              </Text>
+            </View>
+          ) : null}
+
           <View style={s.welcomeCard}>
             <Text style={s.title}>Welcome back</Text>
             <Text style={s.sub}>
@@ -73,12 +125,14 @@ export default function Login() {
                 onChangeText={(t) => {
                   setEmail(t);
                   setError('');
+                  dismissSessionExpired();
                 }}
                 placeholder="you@student.edu.my"
                 placeholderTextColor={theme.colors.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 style={s.input}
+                editable={!loading}
               />
             </View>
 
@@ -91,11 +145,13 @@ export default function Login() {
                 onChangeText={(t) => {
                   setPassword(t);
                   setError('');
+                  dismissSessionExpired();
                 }}
                 placeholder="Enter your password"
                 placeholderTextColor={theme.colors.muted}
                 secureTextEntry={!showPassword}
                 style={s.input}
+                editable={!loading}
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
@@ -118,19 +174,26 @@ export default function Login() {
             </View>
 
             {/* Login Button */}
-            <Pressable style={s.loginButton} onPress={handleLogin}>
-              <Text style={s.loginButtonText}>Sign In</Text>
-              <ArrowRight size={18} color="#FFFFFF" />
+            <Pressable
+              style={[s.loginButton, loading && s.disabledButton]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={s.loginButtonText}>Sign In</Text>
+                  <ArrowRight size={18} color="#FFFFFF" />
+                </>
+              )}
             </Pressable>
 
             {/* Quick Demo Access */}
             <Pressable
-              style={s.demoButton}
-              onPress={() => {
-                setEmail('aina.rahman@student.edu.my');
-                setPassword('password123');
-                router.replace('/(tabs)/home');
-              }}
+              style={[s.demoButton, loading && s.disabledButton]}
+              onPress={handleDemoAccess}
+              disabled={loading}
             >
               <Sparkles size={16} color={theme.colors.violet} />
               <Text style={s.demoButtonText}>Quick Demo Student Access</Text>
@@ -167,7 +230,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 28,
+    marginBottom: 20,
   },
   logoWrap: {
     width: 48,
@@ -187,6 +250,24 @@ const s = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.secondary,
     fontWeight: '500',
+  },
+  expiryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    marginBottom: 16,
+  },
+  expiryText: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.colors.red,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   welcomeCard: {
     backgroundColor: theme.colors.surface,
@@ -235,6 +316,7 @@ const s = StyleSheet.create({
     color: theme.colors.red,
     fontSize: 12,
     marginTop: 8,
+    lineHeight: 16,
   },
   forgotRow: {
     alignItems: 'flex-end',
@@ -277,6 +359,9 @@ const s = StyleSheet.create({
     color: theme.colors.violet,
     fontWeight: '700',
     fontSize: 13,
+  },
+  disabledButton: {
+    opacity: 0.65,
   },
   footer: {
     flexDirection: 'row',

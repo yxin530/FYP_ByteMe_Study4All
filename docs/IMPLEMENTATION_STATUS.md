@@ -14,8 +14,8 @@ Backend implementation has started. The repository currently has a frontend prot
 |---|---|---|---|
 | Phase 0 — Documentation and contracts | Completed | Read and audited all repository Markdown files. Added the phased backend plan. Identified the missing `docs/REPORT_CHAPTERS_1_2.md` reference. | Define and document final endpoint schemas, error codes, source-reference format, and authorization contracts. |
 | Phase 1 — Backend foundation | Completed | Added environment configuration, configurable CORS and JSON limits, request IDs, structured API errors, central 404 handling, central error handling for malformed JSON and size limits, explicit feature route placeholders, formal Zod request validation middleware, structured JSON logging with sensitive-field redaction, structured audit conventions, and automated endpoint verification scripts and unit tests. Upgraded active runtime to Node 22 (v22.23.2) and verified all endpoint responses. | — |
-| Phase 2 — Authentication and authorization | In progress | Added an authenticated request type, Bearer-token extraction, Supabase user verification boundary, protected feature routes, and configuration errors for missing Supabase credentials. Added placeholder Supabase variables to `.env.example`. | Create the Supabase project, configure local credentials, connect login/registration/password-reset flows, and add ownership checks for persisted resources. |
-| Phase 3 — Materials and Snap-to-Learn | Not started | — | Add material registration, storage, processing, version hashes, extraction, retrieval, and deletion. |
+| Phase 2 — Authentication and authorization | Completed | Added authenticated request type, Bearer-token extraction, Supabase user verification boundary, protected feature routes, backend login/register/password-reset/logout endpoints, and root/server `.env.local` support. Built `expo-secure-store` session storage (`lib/sessionStore.ts`), app-wide `AuthProvider` (`lib/authContext.tsx`), connected login/register/forgot-password screens, connected profile logout, added 401 session-expiry handling, and automated auth unit tests (`test/auth.test.ts`). | — |
+| Phase 3 — Materials and Snap-to-Learn | In progress | Added the initial Supabase materials/storage schema with user-scoped RLS policies in `server/sql/phase3_materials.sql`. | Run the schema in Supabase, then add backend upload/signing, processing status updates, version hashes, extraction, retrieval, deletion, and frontend material integration. |
 | Phase 4 — Grounded Tutor and Material skills | Not started | — | Add material retrieval, Tutor/Material skills, Orchestrator routing, provider adapter, and source validation. |
 | Phase 5 — Quiz generation and history | Not started | — | Add quiz generation, persistence, answer submission, difficulty rules, and incorrect-answer explanations. |
 | Phase 6 — Learning profile and progress | Not started | — | Add activity analysis, profile persistence, recommendations, and real dashboard data. |
@@ -38,8 +38,14 @@ Backend implementation has started. The repository currently has a frontend prot
 - All Phase 1 completion gates were validated via `npm --prefix server run verify` (9/9 checks passing) and `npm --prefix server run test`.
 - Backend dependencies are installed and the server TypeScript typecheck passes with 0 errors.
 - Backend unit tests pass after adding the authentication boundary.
-- Real Supabase authentication is not active because the project and credentials do not exist yet.
+- The local `.env.local` contains the expected `SUPABASE_URL` and `SUPABASE_ANON_KEY` variable names; their values were not printed or committed.
+- Backend login, registration, password-reset, and logout routes are implemented and connect to the Supabase Auth boundary.
+- Authentication-aware endpoint verification passes 9/9 checks; protected routes reject missing or invalid tokens with `401 AUTHENTICATION_REQUIRED` or `401 INVALID_ACCESS_TOKEN`.
+- Frontend authentication screens (login, register, forgot-password) are connected to backend endpoints with loading indicators, input validation, and structured error reporting.
+- Sessions are persisted securely via `expo-secure-store` with Web fallback (`lib/sessionStore.ts`).
+- Global session expiry handling clears invalid tokens and redirects users to sign in.
+- All frontend auth integration tests pass (`npm run test:auth` - 5/5 tests passing).
 
 ## Next implementation target
 
-Create the Supabase project and configure local credentials, then connect the mobile authentication screens to the backend/Supabase session flow before adding database-backed learning features.
+Proceed to Phase 3 (Materials and Snap-to-Learn): register material metadata, implement Supabase Storage upload flow, compute material version hashes, and enforce user-scoped resource ownership.
