@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -11,6 +11,7 @@ import {
   BarChart3,
   BookOpen,
   Bot,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -24,26 +25,32 @@ import {
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '@/lib/theme';
+import { profileApi, type LearningProfile } from '@/lib/api';
 
 type Screen = 'overview' | 'empty' | 'subject' | 'weak';
 
-const subjects = [
-  ['Mathematics', '68%', '#2563EB', Target],
-  ['Programming', '54%', '#7C3AED', Code2],
-  ['Statistics', '81%', '#16A34A', BarChart3],
-  ['English', '42%', '#D97706', BookOpen],
-] as const;
-
 export default function Progress() {
   const [screen, setScreen] = useState<Screen>('overview');
+  const [selectedSubject, setSelectedSubject] = useState('Mathematics');
   const [range, setRange] = useState('Month');
+  const [profile, setProfile] = useState<LearningProfile | null>(null);
+
+  useEffect(() => {
+    profileApi.get().then(setProfile).catch(() => setProfile(null));
+  }, []);
 
   if (screen === 'weak') {
-    return <WeakTopics back={() => setScreen('overview')} />;
+    return <WeakTopics back={() => setScreen('overview')} profile={profile} />;
   }
 
   if (screen === 'subject') {
-    return <SubjectPerformance back={() => setScreen('overview')} />;
+    return (
+      <SubjectPerformance
+        subject={selectedSubject}
+        back={() => setScreen('overview')}
+        profile={profile}
+      />
+    );
   }
 
   return (
@@ -60,7 +67,7 @@ export default function Progress() {
           accessibilityLabel="Review weak topics"
         >
           <Sparkles size={14} color={theme.colors.violet} />
-          <Text style={s.weakBadgeText}>3 weak topics</Text>
+            <Text style={s.weakBadgeText}>{profile?.weakTopics.length ?? 0} weak topics</Text>
         </Pressable>
       </View>
 
@@ -90,8 +97,12 @@ export default function Progress() {
           <EmptyHistory />
         ) : (
           <Overview
-            openSubject={() => setScreen('subject')}
+            openSubject={(subj) => {
+              setSelectedSubject(subj);
+              setScreen('subject');
+            }}
             openWeak={() => setScreen('weak')}
+            profile={profile}
           />
         )}
       </ScrollView>
@@ -102,18 +113,56 @@ export default function Progress() {
 function Overview({
   openSubject,
   openWeak,
+  profile,
 }: {
-  openSubject: () => void;
+  openSubject: (subject: string) => void;
   openWeak: () => void;
+  profile: LearningProfile | null;
 }) {
+  const streakDays = profile?.streakDays ?? 0;
+  const avgQuizScore = profile?.overallMastery ?? (profile?.progress.length ? Math.round(profile.progress.reduce((sum, item) => sum + item.percentage, 0) / profile.progress.length) : 0);
+  const totalQuizzes = profile?.totalQuizzes ?? profile?.evidenceReferences?.length ?? 0;
+
+  const chartQuizzes = [...(profile?.recentQuizzes ?? [])].reverse();
+  const hasChartData = chartQuizzes.length > 0;
+  const trendDiff =
+    chartQuizzes.length >= 2
+      ? chartQuizzes[chartQuizzes.length - 1].percentage - chartQuizzes[0].percentage
+      : 0;
+
+  const defaultMeta: Record<string, { color: string; icon: any }> = {
+    Mathematics: { color: '#2563EB', icon: Target },
+    Programming: { color: '#7C3AED', icon: Code2 },
+    Statistics: { color: '#16A34A', icon: BarChart3 },
+    English: { color: '#D97706', icon: BookOpen },
+    Science: { color: '#059669', icon: Sparkles },
+  };
+
+  const subjectRows =
+    profile?.subjectMastery && profile.subjectMastery.length > 0
+      ? profile.subjectMastery.map((item) => ({
+          name: item.subject,
+          score: `${item.percentage}%`,
+          scoreNum: item.percentage,
+          color: defaultMeta[item.subject]?.color ?? theme.colors.blue,
+          Icon: defaultMeta[item.subject]?.icon ?? Target,
+          subtext: `${item.topicsCount} topic${item.topicsCount === 1 ? '' : 's'} · ${item.quizzesCount} attempt${item.quizzesCount === 1 ? '' : 's'}`,
+        }))
+      : [
+          { name: 'Mathematics', score: '0%', scoreNum: 0, color: '#2563EB', Icon: Target, subtext: 'No quizzes yet' },
+          { name: 'Programming', score: '0%', scoreNum: 0, color: '#7C3AED', Icon: Code2, subtext: 'No quizzes yet' },
+          { name: 'Statistics', score: '0%', scoreNum: 0, color: '#16A34A', Icon: BarChart3, subtext: 'No quizzes yet' },
+          { name: 'English', score: '0%', scoreNum: 0, color: '#D97706', Icon: BookOpen, subtext: 'No quizzes yet' },
+        ];
+
   return (
     <>
       {/* 3 Key Metric Stats */}
       <View style={s.stats}>
         {[
-          ['5 days', 'Study streak', Flame, '#EA580C'],
-          ['65%', 'Avg quiz score', Target, theme.colors.blue],
-          ['9h 40m', 'Total studied', Timer, '#16A34A'],
+          [`${streakDays} day${streakDays === 1 ? '' : 's'}`, 'Study streak', Flame, '#EA580C'],
+          [`${avgQuizScore}%`, 'Avg quiz score', Target, theme.colors.blue],
+          [`${totalQuizzes}`, 'Quizzes completed', Timer, '#16A34A'],
         ].map(([value, label, Icon, color]) => {
           const StatIcon = Icon as React.ComponentType<{
             size?: number;
@@ -141,42 +190,81 @@ function Overview({
         <View style={s.cardHeader}>
           <View>
             <Text style={s.cardTitle}>Quiz Score Trajectory</Text>
-            <Text style={s.cardSub}>Last 6 quizzes across all subjects</Text>
+            <Text style={s.cardSub}>
+              {hasChartData
+                ? chartQuizzes.length === 1
+                  ? 'First recorded quiz attempt'
+                  : `Last ${chartQuizzes.length} quizzes across all subjects`
+                : 'Track your performance improvement over time'}
+            </Text>
           </View>
-          <Text style={s.chartScoreAvg}>+18% improvement</Text>
+          <Text
+            style={[
+              s.chartScoreAvg,
+              !hasChartData && { color: theme.colors.secondary, backgroundColor: theme.colors.surface },
+            ]}
+          >
+            {hasChartData
+              ? chartQuizzes.length >= 2
+                ? `${trendDiff >= 0 ? '+' : ''}${trendDiff}% trend`
+                : `${chartQuizzes[0].percentage}% score`
+              : 'No quizzes yet'}
+          </Text>
         </View>
 
-        <View style={s.chartContainer}>
-          <View style={s.chartGridLines}>
-            <View style={s.gridLine} />
-            <View style={s.gridLine} />
-            <View style={s.gridLine} />
-          </View>
-          <View style={s.chartLine} />
-          {[52, 64, 56, 72, 82, 70].map((score, i) => (
-            <View
-              key={i}
-              style={[
-                s.chartPointWrapper,
-                { left: `${i * 18 + 5}%`, bottom: `${score * 0.9}%` },
-              ]}
-            >
-              <View style={s.pointBadge}>
-                <Text style={s.pointBadgeText}>{score}%</Text>
+        {hasChartData ? (
+          <>
+            <View style={s.chartContainer}>
+              <View style={s.chartGridLines}>
+                <View style={s.gridLine} />
+                <View style={s.gridLine} />
+                <View style={s.gridLine} />
               </View>
-              <View style={s.chartPoint} />
+              <View style={s.chartLine} />
+              {chartQuizzes.map((q, i) => {
+                const score = q.percentage;
+                const leftPercent =
+                  chartQuizzes.length === 1
+                    ? 50
+                    : Math.round((i / (chartQuizzes.length - 1)) * 80 + 10);
+                const bottomPercent = Math.min(88, Math.max(12, score * 0.82));
+                return (
+                  <View
+                    key={q.quizId || i}
+                    style={[
+                      s.chartPointWrapper,
+                      { left: `${leftPercent}%`, bottom: `${bottomPercent}%` },
+                    ]}
+                  >
+                    <View style={s.pointBadge}>
+                      <Text style={s.pointBadgeText}>{score}%</Text>
+                    </View>
+                    <View style={s.chartPoint} />
+                  </View>
+                );
+              })}
             </View>
-          ))}
-        </View>
-        <View style={s.chartLabels}>
-          {['Quiz 1', 'Quiz 2', 'Quiz 3', 'Quiz 4', 'Quiz 5', 'Quiz 6'].map(
-            (q) => (
-              <Text key={q} style={s.chartLabelText}>
-                {q}
-              </Text>
-            )
-          )}
-        </View>
+            <View style={s.chartLabels}>
+              {chartQuizzes.map((q, i) => (
+                <Text key={q.quizId || i} style={s.chartLabelText}>
+                  {`Q${i + 1}`}
+                </Text>
+              ))}
+            </View>
+          </>
+        ) : (
+          <View
+            style={[
+              s.chartContainer,
+              { alignItems: 'center', justifyContent: 'center', padding: 16 },
+            ]}
+          >
+            <Target size={28} color={theme.colors.blue} style={{ marginBottom: 6, opacity: 0.6 }} />
+            <Text style={{ fontSize: 13, color: theme.colors.secondary, textAlign: 'center' }}>
+              Complete practice quizzes to visualize your grounded score trajectory.
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Weak Topics Callout */}
@@ -185,9 +273,13 @@ function Overview({
           <Sparkles size={20} color={theme.colors.violet} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.weakBannerTitle}>3 Topics Require Revision</Text>
+          <Text style={s.weakBannerTitle}>
+            {profile?.weakTopics.length ?? 0} Topics Require Revision
+          </Text>
           <Text style={s.weakBannerSub}>
-            Quadratics, Recursion, Probability · Tap to view AI recommendations
+            {profile?.weakTopics && profile.weakTopics.length > 0
+              ? profile.weakTopics.map((item) => item.topic).join(', ')
+              : 'Complete a quiz to generate grounded recommendations'}
           </Text>
         </View>
         <ChevronRight size={18} color={theme.colors.violet} />
@@ -195,7 +287,7 @@ function Overview({
 
       {/* Subject Mastery List */}
       <Text style={s.sectionTitle}>Mastery by Subject</Text>
-      {subjects.map(([name, score, color, Icon]) => {
+      {subjectRows.map(({ name, score, scoreNum, color, Icon, subtext }) => {
         const SubjectIcon = Icon as React.ComponentType<{
           size?: number;
           color?: string;
@@ -204,7 +296,7 @@ function Overview({
           <Pressable
             key={name}
             style={s.subjectRow}
-            onPress={openSubject}
+            onPress={() => openSubject(name)}
           >
             <View
               style={[
@@ -226,12 +318,15 @@ function Overview({
                   style={[
                     s.fill,
                     {
-                      width: score as `${number}%`,
+                      width: `${Math.min(100, Math.max(0, scoreNum))}%`,
                       backgroundColor: color,
                     },
                   ]}
                 />
               </View>
+              <Text style={{ fontSize: 11, color: theme.colors.secondary, marginTop: 4 }}>
+                {subtext}
+              </Text>
             </View>
             <ChevronRight size={18} color={theme.colors.secondary} />
           </Pressable>
@@ -259,13 +354,27 @@ function EmptyHistory() {
   );
 }
 
-function SubjectPerformance({ back }: { back: () => void }) {
-  const items = [
-    ['Linear equations', '90%', '#16A34A', 'Mastered'],
-    ['Functions & graphs', '74%', '#2563EB', 'Good'],
-    ['Quadratic equations', '58%', '#DC2626', 'Needs revision'],
-    ['Indices & surds', '—', '#CBD5E1', 'Not started'],
-  ];
+function SubjectPerformance({
+  subject,
+  back,
+  profile,
+}: {
+  subject: string;
+  back: () => void;
+  profile: LearningProfile | null;
+}) {
+  const subjectMeta = profile?.subjectMastery?.find(
+    (s) => s.subject.toLowerCase() === subject.toLowerCase(),
+  );
+  const masteryPercentage = subjectMeta?.percentage ?? 0;
+
+  const relevantProgress = (profile?.progress ?? []).filter(
+    (p) => p.subject.toLowerCase() === subject.toLowerCase(),
+  );
+
+  const relevantQuizzes = (profile?.recentQuizzes ?? []).filter(
+    (q) => q.subject.toLowerCase() === subject.toLowerCase(),
+  );
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -273,104 +382,136 @@ function SubjectPerformance({ back }: { back: () => void }) {
         <Pressable onPress={back} style={s.headerBtn}>
           <ChevronLeft size={24} color={theme.colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>Mathematics Mastery</Text>
+        <Text style={s.headerTitle}>{subject} Mastery</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={s.content}>
         <View style={s.mastery}>
           <View style={s.masteryRing}>
-            <Text style={s.masteryText}>68%</Text>
+            <Text style={s.masteryText}>{masteryPercentage}%</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.masterySub}>Overall Syllabus Mastery</Text>
-            <Text style={s.masteryTitle}>Improving Steadily</Text>
-            <Text style={s.green}>↗ +8% vs last month</Text>
+            <Text style={s.masteryTitle}>
+              {masteryPercentage >= 80
+                ? 'Mastery Achieved'
+                : masteryPercentage >= 60
+                ? 'Steadily Improving'
+                : 'Needs Focus'}
+            </Text>
+            <Text
+              style={
+                masteryPercentage >= 60
+                  ? s.green
+                  : { color: theme.colors.amber, fontWeight: '700' }
+              }
+            >
+              {relevantQuizzes.length} quiz attempt{relevantQuizzes.length === 1 ? '' : 's'} recorded
+            </Text>
           </View>
         </View>
 
         <Text style={s.sectionTitle}>Topic Breakdown</Text>
-        {items.map(([name, score, color, state]) => (
-          <View key={name} style={s.topicRow}>
-            <View style={s.subjectHeader}>
-              <Text style={s.subjectName}>{name}</Text>
-              <Text
-                style={[
-                  s.topicStatus,
-                  state === 'Needs revision'
-                    ? s.statusRevision
-                    : state === 'Mastered'
-                    ? s.statusMastered
-                    : undefined,
-                ]}
-              >
-                {state}
-              </Text>
-            </View>
-            <View style={s.topicProgressRow}>
-              <View style={s.bar}>
-                <View
-                  style={[
-                    s.fill,
-                    {
-                      width: (score === '—' ? '0%' : score) as `${number}%`,
-                      backgroundColor: color,
-                    },
-                  ]}
-                />
+        {relevantProgress.length > 0 ? (
+          relevantProgress.map((item) => {
+            const state =
+              item.percentage >= 80
+                ? 'Mastered'
+                : item.percentage >= 60
+                ? 'Good'
+                : 'Needs revision';
+            const color =
+              item.percentage >= 80
+                ? '#16A34A'
+                : item.percentage >= 60
+                ? '#2563EB'
+                : '#DC2626';
+            return (
+              <View key={item.topic} style={s.topicRow}>
+                <View style={s.subjectHeader}>
+                  <Text style={s.subjectName}>{item.topic}</Text>
+                  <Text
+                    style={[
+                      s.topicStatus,
+                      state === 'Needs revision'
+                        ? s.statusRevision
+                        : state === 'Mastered'
+                        ? s.statusMastered
+                        : undefined,
+                    ]}
+                  >
+                    {state}
+                  </Text>
+                </View>
+                <View style={s.topicProgressRow}>
+                  <View style={s.bar}>
+                    <View
+                      style={[
+                        s.fill,
+                        {
+                          width: `${item.percentage}%`,
+                          backgroundColor: color,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={s.scoreLabel}>{item.percentage}%</Text>
+                </View>
               </View>
-              <Text style={s.scoreLabel}>{score}</Text>
-            </View>
+            );
+          })
+        ) : (
+          <View style={[s.chartCard, { alignItems: 'center', padding: 20 }]}>
+            <Text style={{ color: theme.colors.secondary, fontSize: 13, textAlign: 'center' }}>
+              No topic attempts recorded for {subject} yet. Take a quiz to generate grounded mastery stats.
+            </Text>
           </View>
-        ))}
+        )}
 
         <Text style={s.sectionTitle}>Recent Quiz Attempts</Text>
-        {[
-          'Quadratic equations · 70% (7/10) · 5 Oct',
-          'Quadratic equations · 50% (5/10) · 1 Oct',
-        ].map((item) => (
-          <View style={s.quizRow} key={item}>
-            <HelpCircle size={18} color={theme.colors.secondary} />
-            <Text style={s.quizRowText}>{item}</Text>
+        {relevantQuizzes.length > 0 ? (
+          relevantQuizzes.map((item) => {
+            const dateStr = item.createdAt
+              ? new Date(item.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                })
+              : 'Recent';
+            return (
+              <View style={s.quizRow} key={item.quizId}>
+                <HelpCircle size={18} color={theme.colors.secondary} />
+                <Text style={s.quizRowText}>
+                  {`${item.topic} · ${item.percentage}% (${item.score}/${item.total}) · ${dateStr}`}
+                </Text>
+              </View>
+            );
+          })
+        ) : (
+          <View style={[s.chartCard, { alignItems: 'center', padding: 16 }]}>
+            <Text style={{ color: theme.colors.secondary, fontSize: 13 }}>
+              No quiz attempts recorded for {subject} yet.
+            </Text>
           </View>
-        ))}
+        )}
 
-        <Pressable
-          style={s.primary}
-          onPress={() => router.push('/quiz')}
-        >
+        <Pressable style={s.primary} onPress={() => router.push('/quiz')}>
           <Target size={18} color="#FFFFFF" />
-          <Text style={s.primaryText}>Take Mathematics Quiz</Text>
+          <Text style={s.primaryText}>Take {subject} Quiz</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function WeakTopics({ back }: { back: () => void }) {
-  const items = [
-    [
-      'Factorising quadratics',
-      'Mathematics · Last score: 50%',
-      'Common pitfall: Sign errors when choosing factor pairs for negative constants',
-      Target,
-      '#2563EB',
-    ],
-    [
-      'Recursion in Python',
-      'Programming · Last score: 45%',
-      'Common pitfall: Omitting the base termination case before recursive calls',
-      Code2,
-      '#7C3AED',
-    ],
-    [
-      'Compound Probability',
-      'Statistics · Last score: 55%',
-      "Common pitfall: Confusing mutually exclusive vs independent conditional rules",
-      BarChart3,
-      '#16A34A',
-    ],
-  ] as const;
+function WeakTopics({
+  back,
+  profile,
+}: {
+  back: () => void;
+  profile: LearningProfile | null;
+}) {
+  const weakTopics = profile?.weakTopics ?? [];
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -387,71 +528,93 @@ function WeakTopics({ back }: { back: () => void }) {
           <Sparkles size={22} color={theme.colors.violet} />
           <View style={{ flex: 1 }}>
             <Text style={s.profileLabel}>LEARNING PROFILE INSIGHTS</Text>
-            <Text style={s.profileTitle}>3 Core Concepts Need Focus</Text>
+            <Text style={s.profileTitle}>
+              {weakTopics.length > 0
+                ? `${weakTopics.length} Core Concept${weakTopics.length === 1 ? '' : 's'} Need Focus`
+                : 'All Tested Concepts Above 60%'}
+            </Text>
             <Text style={s.profileBody}>
-              Identified by your learning pattern across the last 5 quizzes and notes review.
+              {weakTopics.length > 0
+                ? 'Identified by your learning pattern across recorded grounded quiz sessions.'
+                : 'Great performance! None of your tested topics fall below the 60% mastery threshold.'}
             </Text>
           </View>
         </View>
 
-        {items.map(([name, meta, mistake, Icon, color]) => {
-          const TopicIcon = Icon as React.ComponentType<{
-            size?: number;
-            color?: string;
-          }>;
-          return (
-            <View style={s.weakCard} key={name}>
-              <View style={s.weakHeader}>
-                <View
-                  style={[s.weakIcon, { backgroundColor: `${color}18` }]}
-                >
-                  <TopicIcon size={22} color={color} />
+        {weakTopics.length > 0 ? (
+          weakTopics.map((item) => {
+            const recommendation = profile?.recommendations?.find(
+              (r) => r.topic === item.topic,
+            );
+            return (
+              <View style={s.weakCard} key={`${item.subject}-${item.topic}`}>
+                <View style={s.weakHeader}>
+                  <View
+                    style={[s.weakIcon, { backgroundColor: `${theme.colors.red}18` }]}
+                  >
+                    <Target size={22} color={theme.colors.red} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.weakTitle}>{item.topic}</Text>
+                    <Text style={s.weakMeta}>
+                      {`${item.subject} · Recorded score: ${item.percentage}% (${item.attempts} attempt${item.attempts === 1 ? '' : 's'})`}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.weakTitle}>{name}</Text>
-                  <Text style={s.weakMeta}>{meta}</Text>
+
+                <View style={s.mistake}>
+                  <CircleAlert size={16} color="#B45309" />
+                  <Text style={s.mistakeText}>
+                    {recommendation?.reason ??
+                      `Scored ${item.percentage}% in quizzes for this topic.`}
+                  </Text>
+                </View>
+
+                <View style={s.weakActions}>
+                  <Pressable
+                    style={s.practiseAction}
+                    onPress={() => router.push('/quiz')}
+                  >
+                    <Target size={14} color="#FFFFFF" />
+                    <Text style={s.practiseActionText}>Practise Quiz</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={s.aiAction}
+                    onPress={() => router.push('/(tabs)/tutor')}
+                  >
+                    <Bot size={14} color={theme.colors.violet} />
+                    <Text style={s.aiActionText}>Ask AI Tutor</Text>
+                  </Pressable>
                 </View>
               </View>
-
-              <View style={s.mistake}>
-                <CircleAlert size={16} color="#B45309" />
-                <Text style={s.mistakeText}>{mistake}</Text>
-              </View>
-
-              <View style={s.weakActions}>
-                <Pressable
-                  style={s.practiseAction}
-                  onPress={() => router.push('/quiz')}
-                >
-                  <Target size={14} color="#FFFFFF" />
-                  <Text style={s.practiseActionText}>Practise (5 Qs)</Text>
-                </Pressable>
-
-                <Pressable
-                  style={s.aiAction}
-                  onPress={() => router.push('/(tabs)/tutor')}
-                >
-                  <Bot size={14} color={theme.colors.violet} />
-                  <Text style={s.aiActionText}>Ask AI Tutor</Text>
-                </Pressable>
-
-                <Pressable
-                  style={s.audioAction}
-                  onPress={() => router.push('/learn')}
-                >
-                  <Headphones size={14} color={theme.colors.amber} />
-                </Pressable>
-              </View>
-            </View>
-          );
-        })}
+            );
+          })
+        ) : (
+          <View style={[s.chartCard, { alignItems: 'center', padding: 24 }]}>
+            <Check size={32} color={theme.colors.green} style={{ marginBottom: 8 }} />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: theme.colors.text }}>
+              No Weak Topics
+            </Text>
+            <Text
+              style={{
+                fontSize: 13,
+                color: theme.colors.secondary,
+                textAlign: 'center',
+                marginTop: 4,
+              }}
+            >
+              All of your tested topics are above 60% mastery. Keep taking quizzes to reinforce your knowledge!
+            </Text>
+          </View>
+        )}
 
         <Pressable
           style={s.primary}
-          onPress={() => router.push('/(tabs)/plan')}
+          onPress={() => router.push('/quiz')}
         >
-          <Sparkles size={18} color="#FFFFFF" />
-          <Text style={s.primaryText}>Add Revision to Study Plan</Text>
+          <Target size={18} color="#FFFFFF" />
+          <Text style={s.primaryText}>Take Practice Quiz</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

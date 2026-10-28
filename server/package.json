@@ -6,6 +6,7 @@
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "verify": "tsx scripts/verifyEndpoints.ts",
+    "verify:quiz": "tsx scripts/verifyQuizSupabaseFlow.ts",
     "test": "tsx --test test/**/*.ts"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -25,6 +25,7 @@ import {
 import { router } from 'expo-router';
 import { theme } from '@/lib/theme';
 import { useAuth } from '@/lib/authContext';
+import { materialsApi, profileApi, type LearningProfile } from '@/lib/api';
 
 type Screen = 'profile' | 'settings' | 'preferences';
 
@@ -32,6 +33,13 @@ export default function Profile() {
   const { user, logout: performLogout } = useAuth();
   const [screen, setScreen] = useState<Screen>('profile');
   const [logout, setLogout] = useState(false);
+  const [profile, setProfile] = useState<LearningProfile | null>(null);
+  const [materialsCount, setMaterialsCount] = useState<number>(0);
+
+  useEffect(() => {
+    profileApi.get().then(setProfile).catch(() => {});
+    materialsApi.list().then((m) => setMaterialsCount(m.length)).catch(() => {});
+  }, []);
 
   const displayName = user?.name || 'Aina Rahman';
   const displayEmail = user?.email || 'aina.rahman@student.edu.my';
@@ -107,9 +115,9 @@ export default function Profile() {
         {/* Stats Row */}
         <View style={s.stats}>
           {[
-            ['5 days', 'Study streak', '🔥'],
-            ['12', 'Quizzes completed', '🎯'],
-            ['4', 'Notes uploaded', '📚'],
+            [`${profile?.streakDays ?? 0} day${profile?.streakDays === 1 ? '' : 's'}`, 'Study streak', '🔥'],
+            [`${profile?.totalQuizzes ?? profile?.evidenceReferences?.length ?? 0}`, 'Quizzes completed', '🎯'],
+            [`${materialsCount}`, 'Notes uploaded', '📚'],
           ].map(([value, label, emoji]) => (
             <View style={s.stat} key={label}>
               <Text style={s.statEmoji}>{emoji}</Text>

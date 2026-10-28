@@ -334,3 +334,18 @@ export const quizApi = {
   explain: async (quizId: string, questionId: string): Promise<{ questionId: string; explanation: string; correctAnswer: string; sourceReferences: unknown[]; status: string }> =>
     request('/api/quiz/explain', { method: 'POST', body: JSON.stringify({ quizId, questionId }) }),
 };
+
+export type LearningProfile = {
+  strengths: Array<{ subject: string; topic: string; percentage: number; attempts: number; confidence: string }>;
+  weakTopics: Array<{ subject: string; topic: string; percentage: number; attempts: number; confidence: string }>;
+  progress: Array<{ subject: string; topic: string; percentage: number; attempts: number; confidence: string; latestActivityAt?: string }>;
+  recommendations: Array<{ topic: string; reason: string; action: string }>;
+  evidenceReferences: Array<{ quizId: string; subject: string; topic: string; score?: number; total?: number; percentage?: number; createdAt?: string }>;
+  recentQuizzes?: Array<{ quizId: string; subject: string; topic: string; score: number; total: number; percentage: number; createdAt: string }>;
+  subjectMastery?: Array<{ subject: string; percentage: number; topicsCount: number; quizzesCount: number }>;
+  overallMastery?: number;
+  streakDays?: number;
+  totalQuizzes?: number;
+  status: string;
+};
+export const profileApi = { get: async (): Promise<LearningProfile> => request<LearningProfile>('/api/profile', { method: 'GET' }) };

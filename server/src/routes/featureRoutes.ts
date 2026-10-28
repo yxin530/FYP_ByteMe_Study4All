@@ -30,6 +30,7 @@ import { requireAuth } from '../security/auth.js';
 import type { AuthenticatedRequest } from '../security/auth.js';
 import { routeTutorRequest } from '../services/orchestratorService.js';
 import { generateQuiz, submitQuiz, explainQuizAnswer } from '../services/quizSkill.js';
+import { getLearningProfile } from '../services/learningProfileService.js';
 
 const router = Router();
 
@@ -155,6 +156,12 @@ router.post('/quiz/explain', validateBody(explainQuizAnswerSchema), async (req, 
   try {
     const authenticated = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string };
     res.json(await explainQuizAnswer(req.body.quizId, req.body.questionId, authenticated.user, authenticated.accessToken));
+  } catch (error) { next(error); }
+});
+router.get('/profile', async (req, res, next) => {
+  try {
+    const authenticated = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string };
+    res.json(await getLearningProfile(authenticated.user, authenticated.accessToken));
   } catch (error) { next(error); }
 });
 router.post('/audio/transcript', validateBody(audioTranscriptSchema), pending('Audio transcript generation'));

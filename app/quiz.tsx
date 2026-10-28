@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { theme } from '@/lib/theme';
+import { materialsApi, quizApi, type QuizGenerationResponse, type QuizSubmissionResponse } from '@/lib/api';
 
 type Screen =
   | 'subjects'
@@ -36,13 +37,6 @@ type Screen =
   | 'results'
   | 'review';
 
-const answers = [
-  'x = 3 and x = 1',
-  'x = 4 and x = −1',
-  'x = −4 and x = 1',
-  'x = 2 and x = −2',
-];
-
 export default function Quiz() {
   const [screen, setScreen] = useState<Screen>('subjects');
   const [answer, setAnswer] = useState('x = 4 and x = −1');
@@ -50,6 +44,43 @@ export default function Quiz() {
   const [topic, setTopic] = useState('Quadratic equations');
   const [questions, setQuestions] = useState('10 questions');
   const [difficulty, setDifficulty] = useState('Mixed');
+  const [quiz, setQuiz] = useState<QuizGenerationResponse | null>(null);
+  const [submission, setSubmission] = useState<QuizSubmissionResponse | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answersByQuestion, setAnswersByQuestion] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const startQuiz = async () => {
+    setBusy(true); setError(null);
+    try {
+      const materials = await materialsApi.list();
+      const ready = materials.filter((material) => material.processing_status === 'ready');
+      if (!ready.length) throw new Error('Upload and process relevant learning material before starting a quiz.');
+      const generated = await quizApi.generate({
+        subject: selectedSubject,
+        topic,
+        materialIds: ready.map((material) => material.id),
+        difficulty: difficulty === 'Easy' || difficulty === 'Hard' ? difficulty.toLowerCase() as 'easy' | 'hard' : 'medium',
+        questionCount: Number.parseInt(questions, 10) || 10,
+      });
+      setQuiz(generated); setCurrentIndex(0); setAnswersByQuestion({}); setScreen('question');
+    } catch (caught: any) { setError(caught?.message ?? 'Unable to generate the quiz.'); }
+    finally { setBusy(false); }
+  };
+
+  const submit = async () => {
+    if (!quiz) return;
+    setBusy(true); setError(null);
+    try {
+      const result = await quizApi.submit(quiz.quizId, Object.entries(answersByQuestion).map(([questionId, answer]) => ({ questionId, answer })));
+      setSubmission(result); setScreen('results');
+    } catch (caught: any) { setError(caught?.message ?? 'Unable to submit the quiz.'); }
+    finally { setBusy(false); }
+  };
+
+  if (busy) return <CenterState title="Preparing your grounded quiz…" body="Retrieving your selected material and saving the quiz session." loading />;
+  if (error) return <CenterState title="Quiz unavailable" body={error} onDone={() => { setError(null); setScreen('topics'); }} />;
 
   if (screen === 'subjects') {
     return (
@@ -73,7 +104,7 @@ export default function Quiz() {
         difficulty={difficulty}
         setDifficulty={setDifficulty}
         onBack={() => setScreen('subjects')}
-        onStart={() => setScreen('question')}
+        onStart={startQuiz}
       />
     );
   }
@@ -94,7 +125,10 @@ export default function Quiz() {
       <Results
         onReview={() => setScreen('review')}
         onDone={() => router.replace('/(tabs)/home')}
-        onRetake={() => setScreen('question')}
+        onRetake={() => { setSubmission(null); setCurrentIndex(0); setScreen('question'); }}
+        percentage={submission?.percentage ?? 0}
+        score={submission?.score ?? 0}
+        total={submission?.total ?? quiz?.questions.length ?? 0}
       />
     );
   }
@@ -104,6 +138,8 @@ export default function Quiz() {
       <Review
         onBack={() => setScreen('results')}
         onDone={() => router.replace('/(tabs)/home')}
+        quiz={quiz}
+        answers={answersByQuestion}
       />
     );
   }
@@ -112,17 +148,15 @@ export default function Quiz() {
     <QuestionScreen
       screen={screen}
       topic={topic}
-      answer={answer}
-      setAnswer={setAnswer}
-      onNext={() =>
-        screen === 'question' ? setScreen('selected') : setScreen('confirm')
-      }
+      question={quiz?.questions[currentIndex]}
+      questionNumber={currentIndex + 1}
+      totalQuestions={quiz?.questions.length ?? 0}
+      answer={quiz ? answersByQuestion[quiz.questions[currentIndex]?.id] ?? '' : answer}
+      setAnswer={(value) => { if (quiz?.questions[currentIndex]) setAnswersByQuestion((previous) => ({ ...previous, [quiz.questions[currentIndex].id]: value })); else setAnswer(value); }}
+      onNext={() => { if (!quiz) return; if (currentIndex >= quiz.questions.length - 1) setScreen('confirm'); else { setCurrentIndex((index) => index + 1); setScreen('question'); } }}
       onCancel={() => setScreen('topics')}
       onKeepGoing={() => setScreen('question')}
-      onSubmit={() => {
-        setScreen('marking');
-        setTimeout(() => setScreen('results'), 1200);
-      }}
+      onSubmit={submit}
     />
   );
 }
@@ -353,6 +387,9 @@ function Choice({
 function QuestionScreen({
   screen,
   topic,
+  question,
+  questionNumber,
+  totalQuestions,
   answer,
   setAnswer,
   onNext,
@@ -362,6 +399,9 @@ function QuestionScreen({
 }: {
   screen: Screen;
   topic: string;
+  question?: { id: string; question: string; options: string[]; difficulty: 'easy' | 'medium' | 'hard' };
+  questionNumber: number;
+  totalQuestions: number;
   answer: string;
   setAnswer: (v: string) => void;
   onNext: () => void;
@@ -380,7 +420,7 @@ function QuestionScreen({
       >
         <View style={s.questionHeader}>
           <Text style={s.sectionTitle}>
-            Question {screen === 'confirm' ? '10' : '3'} of 10
+            Question {questionNumber} of {totalQuestions}
           </Text>
           <Text style={s.diffPill}>Mixed difficulty</Text>
         </View>
@@ -399,16 +439,11 @@ function QuestionScreen({
             QUESTION {screen === 'confirm' ? '10' : '3'}
           </Text>
           <Text style={s.questionTitle}>
-            {screen === 'confirm'
-              ? 'What is the discriminant of x² + 2x + 5 = 0?'
-              : 'Which values of x solve x² − 3x − 4 = 0?'}
+            {question?.question ?? 'No question is loaded.'}
           </Text>
         </View>
 
-        {(screen === 'confirm'
-          ? ['−16', '16', '24', '−4']
-          : answers
-        ).map((item, i) => (
+        {(question?.options ?? []).map((item, i) => (
           <Pressable
             key={item}
             style={[s.answerOption, answer === item && s.answerSelected]}
@@ -428,18 +463,18 @@ function QuestionScreen({
 
         <View style={s.answerFooter}>
           <View style={s.dots}>
-            {Array.from({ length: 10 }).map((_, i) => (
+            {Array.from({ length: totalQuestions }).map((_, i) => (
               <View
                 key={i}
                 style={[
                   s.dot,
-                  i < (screen === 'confirm' ? 9 : 2) && s.dotActive,
+                i < questionNumber - 1 && s.dotActive,
                 ]}
               />
             ))}
           </View>
           <Text style={s.metaText}>
-            {screen === 'confirm' ? '9 of 10' : '2 of 10'} answered
+            {questionNumber - 1} of {totalQuestions} answered
           </Text>
         </View>
 
@@ -517,10 +552,16 @@ function Results({
   onReview,
   onDone,
   onRetake,
+  percentage,
+  score,
+  total,
 }: {
   onReview: () => void;
   onDone: () => void;
   onRetake: () => void;
+  percentage: number;
+  score: number;
+  total: number;
 }) {
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -530,8 +571,8 @@ function Results({
         showsVerticalScrollIndicator={false}
       >
         <View style={s.scoreCircle}>
-          <Text style={s.scoreText}>70%</Text>
-          <Text style={s.scoreSub}>7 of 10 correct</Text>
+          <Text style={s.scoreText}>{percentage}%</Text>
+          <Text style={s.scoreSub}>{score} of {total} correct</Text>
         </View>
 
         <Text style={s.resultsTitle}>Good effort, Aina!</Text>
@@ -542,8 +583,8 @@ function Results({
         <View style={s.statRow}>
           {[
             ['8m 12s', 'Time taken', Clock3],
-            ['7', 'Correct', Check],
-            ['3', 'Incorrect', X],
+            [String(score), 'Correct', Check],
+            [String(Math.max(0, total - score)), 'Incorrect', X],
           ].map(([value, label, Icon]) => {
             const StatIcon = Icon as React.ComponentType<{
               size?: number;
@@ -606,10 +647,58 @@ function Results({
 function Review({
   onBack,
   onDone,
+  quiz,
+  answers,
 }: {
   onBack: () => void;
   onDone: () => void;
+  quiz: QuizGenerationResponse | null;
+  answers: Record<string, string>;
 }) {
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [loadingExplanation, setLoadingExplanation] = useState(false);
+  const [explanations, setExplanations] = useState<
+    Record<string, { explanation: string; correctAnswer: string; sourceReferences: unknown[] }>
+  >({});
+
+  const questionsList = quiz?.questions ?? [];
+  const currentQuestion = questionsList[reviewIndex];
+
+  useEffect(() => {
+    if (!quiz?.quizId || !currentQuestion?.id) return;
+    if (explanations[currentQuestion.id]) return;
+
+    let active = true;
+    setLoadingExplanation(true);
+    quizApi
+      .explain(quiz.quizId, currentQuestion.id)
+      .then((res) => {
+        if (active) {
+          setExplanations((prev) => ({
+            ...prev,
+            [currentQuestion.id]: {
+              explanation: res.explanation,
+              correctAnswer: res.correctAnswer,
+              sourceReferences: res.sourceReferences ?? [],
+            },
+          }));
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load grounded explanation', err);
+      })
+      .finally(() => {
+        if (active) setLoadingExplanation(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [quiz?.quizId, currentQuestion?.id, explanations]);
+
+  const currentExplanation = currentQuestion ? explanations[currentQuestion.id] : null;
+  const userAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
+
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <Header title="Review Answers" onBack={onBack} />
@@ -617,42 +706,39 @@ function Review({
         contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={s.filters}>
-          <Text style={s.filterActivePill}>All (10)</Text>
-          <Text style={s.filterPill}>Incorrect (3)</Text>
-          <Text style={s.filterPill}>Correct (7)</Text>
-        </View>
-
         <View style={s.questionHeader}>
-          <Text style={s.sectionTitle}>Question 4 of 10</Text>
-          <Text style={s.badgeRevision}>Incorrect</Text>
+          <Text style={s.sectionTitle}>
+            Question {reviewIndex + 1} of {questionsList.length || 0}
+          </Text>
+          <Text style={s.badgeRevision}>Review</Text>
         </View>
 
         <View style={s.questionCard}>
-          <Text style={s.questionTitle}>Factorise fully: x² + 5x + 6</Text>
-          <Text style={s.metaText}>Topic: Factorising quadratics</Text>
+          <Text style={s.questionTitle}>{currentQuestion?.question ?? 'No question available.'}</Text>
+          <Text style={s.metaText}>Topic: {quiz?.topic}</Text>
         </View>
 
-        {[
-          '(x + 1)(x + 6)',
-          '(x + 2)(x + 3)',
-          '(x − 2)(x − 3)',
-          '(x + 5)(x + 1)',
-        ].map((item, i) => (
-          <View
-            key={item}
-            style={[
-              s.answerOption,
-              i === 1 && s.correct,
-              i === 2 && s.wrong,
-            ]}
-          >
-            <Text style={s.answerLetter}>{String.fromCharCode(65 + i)}</Text>
-            <Text style={s.answerText}>{item}</Text>
-            {i === 1 && <Check size={20} color={theme.colors.green} />}
-            {i === 2 && <X size={20} color="#DC2626" />}
-          </View>
-        ))}
+        {(currentQuestion?.options ?? []).map((item, i) => {
+          const isCorrect = currentExplanation?.correctAnswer === item;
+          const isUserChoice = userAnswer === item;
+          const isWrongChoice = isUserChoice && currentExplanation && !isCorrect;
+
+          return (
+            <View
+              key={item}
+              style={[
+                s.answerOption,
+                isCorrect && s.correct,
+                isWrongChoice && s.wrong,
+              ]}
+            >
+              <Text style={s.answerLetter}>{String.fromCharCode(65 + i)}</Text>
+              <Text style={s.answerText}>{item}</Text>
+              {isCorrect && <Check size={20} color={theme.colors.green} />}
+              {isWrongChoice && <X size={20} color="#DC2626" />}
+            </View>
+          );
+        })}
 
         {/* Grounded Explanation Box */}
         <View style={s.explanation}>
@@ -660,10 +746,50 @@ function Review({
             <Sparkles size={16} color={theme.colors.violet} />
             <Text style={s.recommendLabel}>AI STEP-BY-STEP EXPLANATION</Text>
           </View>
-          <Text style={s.explanationText}>
-            You need two numbers that multiply to +6 and add to +5. That is +2 and +3, so x² + 5x + 6 = (x + 2)(x + 3).
-          </Text>
-          <Text style={s.explanationSource}>Source: Chapter 3 – Quadratics.pdf (p. 10)</Text>
+          {loadingExplanation && !currentExplanation ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
+              <ActivityIndicator size="small" color={theme.colors.violet} />
+              <Text style={s.explanationText}>Retrieving grounded explanation from your material…</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={s.explanationText}>
+                {currentExplanation?.explanation ??
+                  'This answer is derived directly from your grounded course materials.'}
+              </Text>
+              {currentExplanation?.correctAnswer ? (
+                <Text style={[s.explanationSource, { marginTop: 6, color: theme.colors.text }]}>
+                  Grounded answer: {currentExplanation.correctAnswer}
+                </Text>
+              ) : null}
+              <Text style={s.explanationSource}>
+                {currentExplanation?.sourceReferences?.length
+                  ? `Source: Verified against ${currentExplanation.sourceReferences.length} passage(s) in uploaded material.`
+                  : 'Source references are stored with this quiz.'}
+              </Text>
+            </>
+          )}
+        </View>
+
+        {/* Navigation between questions */}
+        <View style={s.buttonRow}>
+          <Pressable
+            style={[s.secondaryButton, reviewIndex === 0 && { opacity: 0.5 }]}
+            disabled={reviewIndex === 0}
+            onPress={() => setReviewIndex((i) => Math.max(0, i - 1))}
+          >
+            <Text style={s.secondaryButtonText}>Previous Question</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              s.secondaryButton,
+              reviewIndex >= questionsList.length - 1 && { opacity: 0.5 },
+            ]}
+            disabled={reviewIndex >= questionsList.length - 1}
+            onPress={() => setReviewIndex((i) => Math.min(questionsList.length - 1, i + 1))}
+          >
+            <Text style={s.secondaryButtonText}>Next Question</Text>
+          </Pressable>
         </View>
 
         {/* Ask AI Tutor why wrong */}

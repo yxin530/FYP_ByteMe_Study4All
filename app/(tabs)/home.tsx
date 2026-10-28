@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import {
   ArrowRight,
@@ -20,8 +21,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '@/lib/theme';
+import { profileApi } from '@/lib/api';
 
 export default function Home() {
+  const [streakDays, setStreakDays] = useState(0);
+
+  useEffect(() => {
+    profileApi
+      .get()
+      .then((p) => setStreakDays(p.streakDays ?? 0))
+      .catch(() => {});
+  }, []);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
@@ -36,7 +47,7 @@ export default function Home() {
               <Text style={styles.greetingSub}>WELCOME BACK</Text>
               <View style={styles.streakBadge}>
                 <Flame size={14} color="#EA580C" />
-                <Text style={styles.streakText}>5 days streak</Text>
+                <Text style={styles.streakText}>{streakDays} day{streakDays === 1 ? '' : 's'} streak</Text>
               </View>
             </View>
             <Text style={styles.title}>Hi, Aina 👋</Text>
