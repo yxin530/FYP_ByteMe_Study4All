@@ -10,6 +10,7 @@ import {
   audioGenerateSchema,
   audioParamsSchema,
 } from '../schemas/audioSchemas.js';
+import { requireAuth } from '../security/auth.js';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ function pending(feature: string): RequestHandler {
 
 router.post('/auth/login', validateBody(loginSchema), pending('Authentication'));
 router.post('/auth/forgot', validateBody(forgotPasswordSchema), pending('Password recovery'));
+router.use(requireAuth);
 router.post('/materials', validateBody(uploadMaterialSchema), pending('Material upload'));
 router.post('/learn/explain', validateBody(explainSchema), pending('Grounded explanations'));
 router.post('/tutor/chat', validateBody(tutorChatSchema), pending('Tutor chat'));
