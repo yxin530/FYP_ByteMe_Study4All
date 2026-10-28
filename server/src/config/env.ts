@@ -17,4 +17,8 @@ export const env = {
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
   supabaseUrl: process.env.SUPABASE_URL,
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+  llmProvider: process.env.LLM_PROVIDER ?? 'openai',
+  llmApiKey: process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY,
+  llmModel: process.env.LLM_MODEL ?? 'gpt-4o-mini',
+  llmBaseUrl: (process.env.LLM_BASE_URL ?? 'https://api.openai.com/v1').replace(/\/$/, ''),
 };

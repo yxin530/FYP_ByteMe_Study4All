@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -27,7 +27,7 @@ import {
   Volume2,
   X,
 } from 'lucide-react-native';
-import { tutorApi } from '@/lib/api';
+import { materialsApi, tutorApi, type MaterialItem } from '@/lib/api';
 import { theme } from '@/lib/theme';
 
 type Screen = 'new' | 'thinking' | 'answer' | 'error' | 'practice';
@@ -43,9 +43,16 @@ export default function Tutor() {
   const [screen, setScreen] = useState<Screen>('new');
   const [contextOpen, setContextOpen] = useState(false);
   const [draft, setDraft] = useState('');
-  const [selected, setSelected] = useState('Chapter 3 – Quadratics.pdf');
+  const [selected, setSelected] = useState('All my materials');
   const [question, setQuestion] = useState('');
   const [copied, setCopied] = useState(false);
+  const [materials, setMaterials] = useState<MaterialItem[]>([]);
+  const [answer, setAnswer] = useState('');
+  const [sources, setSources] = useState<string[]>([]);
+
+  useEffect(() => {
+    materialsApi.list().then((items) => setMaterials(items.filter((item) => item.processing_status === 'ready'))).catch(() => setMaterials([]));
+  }, []);
 
   const submit = async (value = draft) => {
     const message = value.trim();
@@ -57,12 +64,19 @@ export default function Tutor() {
       return;
     }
     setScreen('thinking');
-    await tutorApi.sendMessage({
-      message,
-      materialIds: ['quadratics-chapter-3'],
-      context: selected,
-    });
-    setTimeout(() => setScreen('answer'), 700);
+    try {
+      const selectedMaterials = selected === 'All my materials' ? materials : materials.filter((item) => item.title === selected);
+      const response = await tutorApi.sendMessage({
+        message,
+        materialIds: selectedMaterials.map((item) => item.id),
+        materialVersionHashes: selectedMaterials.map((item) => item.version_hash ?? '').filter(Boolean),
+      });
+      setAnswer(response.content);
+      setSources(response.sourceReferences.map((source) => `${source.title} · ${source.materialVersionHash.slice(0, 12)}`));
+      setScreen('answer');
+    } catch {
+      setScreen('error');
+    }
   };
 
   const newChat = () => {
@@ -120,9 +134,11 @@ export default function Tutor() {
           {screen === 'new' ? (
             <NewChat draft={draft} setDraft={setDraft} onSubmit={submit} />
           ) : (
-            <Conversation
+              <Conversation
               screen={screen}
               question={question}
+                answer={answer}
+                sources={sources}
               copied={copied}
               onCopy={() => {
                 setCopied(true);
@@ -144,6 +160,7 @@ export default function Tutor() {
         {contextOpen && (
           <ContextSheet
             selected={selected}
+            materials={materials}
             setSelected={(value) => {
               setSelected(value);
               setContextOpen(false);
@@ -201,6 +218,8 @@ function NewChat({
 function Conversation({
   screen,
   question,
+  answer,
+  sources,
   copied,
   onCopy,
   onSubmit,
@@ -208,6 +227,8 @@ function Conversation({
 }: {
   screen: Screen;
   question: string;
+  answer: string;
+  sources: string[];
   copied: boolean;
   onCopy: () => void;
   onSubmit: (value?: string) => void;
@@ -297,21 +318,11 @@ function Conversation({
           </Pressable>
         </View>
 
-        <Text style={s.answerText}>
-          1. Find two numbers that multiply to −4 and add to −3: −4 and +1.
-          {'\n\n'}
-          2. Rewrite equation as (x − 4)(x + 1) = 0.
-          {'\n\n'}
-          3. Set each bracket to zero: x − 4 = 0 or x + 1 = 0.
-        </Text>
-
-        <View style={s.resultBox}>
-          <Text style={s.result}>Final Answer: x = 4 or x = −1</Text>
-        </View>
+        <Text style={s.answerText}>{answer}</Text>
 
         <View style={s.sourceRow}>
           <FileText size={13} color={theme.colors.violet} />
-          <Text style={s.source}>Citing: Chapter 3 – Quadratics.pdf (p. 12)</Text>
+          <Text style={s.source}>Citing: {sources.length ? sources.join(', ') : 'selected material'}</Text>
         </View>
       </View>
 
@@ -412,19 +423,16 @@ function Composer({
 
 function ContextSheet({
   selected,
+  materials,
   setSelected,
   close,
 }: {
   selected: string;
+  materials: MaterialItem[];
   setSelected: (value: string) => void;
   close: () => void;
 }) {
-  const options = [
-    ['All my materials', '4 files across all subjects'],
-    ['Chapter 3 – Quadratics.pdf', 'Mathematics · Ready for AI'],
-    ['Python Basics – Week 4.pptx', 'Programming · Ready for AI'],
-    ['Statistics Lecture 2 – Probability.pdf', 'Statistics · Ready for AI'],
-  ];
+  const options = [['All my materials', `${materials.length} ready files`], ...materials.map((item) => [item.title, `${item.subject_id ?? 'General'} · Ready for AI`])];
 
   return (
     <View style={s.sheetBackdrop}>

@@ -310,20 +310,11 @@ export const agentApi = {
 };
 
 export type TutorMessage = { id: string; role: 'user' | 'assistant'; content: string };
-export type TutorChatRequest = { message: string; materialIds: string[]; context: string };
-export type TutorChatResponse = { message: TutorMessage };
+export type TutorChatRequest = { message: string; materialIds: string[]; materialVersionHashes?: string[] };
+export type TutorChatResponse = { content: string; sourceReferences: Array<{ materialId: string; materialVersionHash: string; title: string; excerpt: string }>; limitations: string[]; status: string; requestId: string };
 
 export const tutorApi = {
   sendMessage: async (req: TutorChatRequest): Promise<TutorChatResponse> => {
-    if (process.env.EXPO_PUBLIC_TUTOR_API_ENABLED !== 'true') {
-      return {
-        message: {
-          id: `local-${Date.now()}`,
-          role: 'assistant',
-          content: 'Your tutor connection is ready. Add the tutor API to start a grounded lesson.',
-        },
-      };
-    }
     return request<TutorChatResponse>('/api/tutor/chat', {
       method: 'POST',
       body: JSON.stringify(req),

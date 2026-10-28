@@ -28,6 +28,7 @@ import {
 } from '../schemas/audioSchemas.js';
 import { requireAuth } from '../security/auth.js';
 import type { AuthenticatedRequest } from '../security/auth.js';
+import { routeTutorRequest } from '../services/orchestratorService.js';
 
 const router = Router();
 
@@ -123,8 +124,20 @@ router.post('/materials/:id/process', validateRequest({ params: materialIdSchema
     res.json({ material });
   } catch (error) { next(error); }
 });
-router.post('/learn/explain', validateBody(explainSchema), pending('Grounded explanations'));
-router.post('/tutor/chat', validateBody(tutorChatSchema), pending('Tutor chat'));
+router.post('/learn/explain', validateBody(explainSchema), async (req, res, next) => {
+  try {
+    const authenticated = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string };
+    const routed = await routeTutorRequest(req.body, authenticated.user, authenticated.accessToken);
+    res.json({ ...routed.result, requestId: routed.requestId, agent: routed.agent });
+  } catch (error) { next(error); }
+});
+router.post('/tutor/chat', validateBody(tutorChatSchema), async (req, res, next) => {
+  try {
+    const authenticated = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string };
+    const routed = await routeTutorRequest(req.body, authenticated.user, authenticated.accessToken);
+    res.json({ ...routed.result, requestId: routed.requestId, agent: routed.agent });
+  } catch (error) { next(error); }
+});
 router.post('/quiz/generate', validateBody(generateQuizSchema), pending('Quiz generation'));
 router.post('/audio/transcript', validateBody(audioTranscriptSchema), pending('Audio transcript generation'));
 router.post('/audio/generate', validateBody(audioGenerateSchema), pending('Audio generation'));
