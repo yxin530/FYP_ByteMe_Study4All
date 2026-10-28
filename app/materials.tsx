@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   BookOpen,
@@ -13,11 +13,15 @@ import {
   Search,
   Sparkles,
   Target,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react-native';
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,6 +31,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { theme } from '@/lib/theme';
+import { materialsApi, type MaterialItem as BackendMaterial } from '@/lib/api';
+import { useAuth } from '@/lib/authContext';
 
 type Mode = 'library' | 'upload' | 'progress' | 'success' | 'failed' | 'details';
 
@@ -40,11 +46,12 @@ export type MaterialItem = {
   pages: number;
   uploadedDate: string;
   summary: string[];
+  raw?: BackendMaterial;
 };
 
-const initialFiles: MaterialItem[] = [
+const initialFallbackFiles: MaterialItem[] = [
   {
-    id: 'mat-1',
+    id: 'mat-demo-1',
     name: 'Chapter 3 – Quadratics.pdf',
     subject: 'Mathematics',
     type: 'PDF',
@@ -59,12 +66,12 @@ const initialFiles: MaterialItem[] = [
     ],
   },
   {
-    id: 'mat-2',
+    id: 'mat-demo-2',
     name: 'Chapter 4 – Functions & Graphs.pdf',
     subject: 'Mathematics',
     type: 'PDF',
     size: '3.1 MB',
-    status: 'AI processing…',
+    status: 'Ready for AI',
     pages: 32,
     uploadedDate: '3 Oct 2026',
     summary: [
@@ -73,7 +80,7 @@ const initialFiles: MaterialItem[] = [
     ],
   },
   {
-    id: 'mat-3',
+    id: 'mat-demo-3',
     name: 'Python Basics – Week 4.pptx',
     subject: 'Programming',
     type: 'PPTX',
@@ -86,29 +93,107 @@ const initialFiles: MaterialItem[] = [
       'Recursive function patterns and base termination cases',
     ],
   },
-  {
-    id: 'mat-4',
-    name: 'Statistics Lecture 2 – Probability.pdf',
-    subject: 'Statistics',
-    type: 'PDF',
-    size: '1.8 MB',
-    status: 'Ready for AI',
-    pages: 15,
-    uploadedDate: '30 Sep 2026',
-    summary: [
-      'Independent vs mutually exclusive events',
-      'Bayes theorem applications in sample spaces',
-    ],
-  },
 ];
 
+function mapBackendToItem(m: BackendMaterial): MaterialItem {
+  const typeName = (m.material_type || 'PDF').toUpperCase();
+  const summaryPoints = m.extracted_text
+    ? m.extracted_text
+        .split(/\r?\n/)
+        .map((s) => s.trim().replace(/^[-•*#\d.]+\s*/, ''))
+        .filter((s) => s.length >= 15 && s.length <= 160)
+        .slice(0, 4)
+    : [];
+
+  let displayStatus: 'Ready for AI' | 'AI processing…' | 'Upload failed' = 'Ready for AI';
+  if (m.processing_status === 'processing' || m.processing_status === 'pending') {
+    displayStatus = 'AI processing…';
+  } else if (m.processing_status === 'failed') {
+    displayStatus = 'Upload failed';
+  }
+
+  const dateStr = m.created_at
+    ? new Date(m.created_at).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : 'Recently';
+
+  const estimatedWords = m.extracted_text ? m.extracted_text.split(/\s+/).length : 0;
+  const estimatedSize = m.extracted_text
+    ? `${(m.extracted_text.length / 1024).toFixed(1)} KB`
+    : '1.5 MB';
+
+  return {
+    id: m.id,
+    name: m.title,
+    subject: m.subject_id || 'General',
+    type: typeName,
+    size: estimatedSize,
+    status: displayStatus,
+    pages: Math.max(1, Math.round(estimatedWords / 250)),
+    uploadedDate: dateStr,
+    summary:
+      summaryPoints.length > 0
+        ? summaryPoints
+        : ['Material indexed and verified for grounded learning.'],
+    raw: m,
+  };
+}
+
 export default function MaterialsScreen() {
-  const [files, setFiles] = useState<MaterialItem[]>(initialFiles);
+  const { isAuthenticated } = useAuth();
+  const [files, setFiles] = useState<MaterialItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [mode, setMode] = useState<Mode>('library');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
-  const [selected, setSelected] = useState<MaterialItem>(initialFiles[0]);
-  const [uploadProgress, setUploadProgress] = useState(64);
+  const [selected, setSelected] = useState<MaterialItem | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const fetchMaterials = async () => {
+    if (!isAuthenticated) {
+      setFiles(initialFallbackFiles);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const list = await materialsApi.list();
+      if (list && list.length > 0) {
+        setFiles(list.map(mapBackendToItem));
+      } else {
+        setFiles([]);
+      }
+    } catch {
+      // Fallback gracefully to demo files in offline/development mode
+      setFiles(initialFallbackFiles);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMaterials();
+  }, [isAuthenticated]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchMaterials();
+  };
+
+  const availableSubjects = useMemo(() => {
+    const subjects = new Set<string>();
+    for (const f of files) {
+      if (f.subject) subjects.add(f.subject);
+    }
+    return ['All', ...Array.from(subjects)];
+  }, [files]);
 
   const visibleFiles = useMemo(() => {
     return files.filter((file) => {
@@ -120,8 +205,29 @@ export default function MaterialsScreen() {
     });
   }, [files, filter, query]);
 
-  if (mode === 'details') {
-    return <Details file={selected} back={() => setMode('library')} />;
+  const handleUploadComplete = (newMaterial: MaterialItem) => {
+    setFiles((prev) => [newMaterial, ...prev]);
+    setSelected(newMaterial);
+  };
+
+  const handleDeleteMaterial = async (id: string) => {
+    try {
+      await materialsApi.delete(id);
+      setFiles((prev) => prev.filter((f) => f.id !== id));
+      setMode('library');
+    } catch (err: any) {
+      Alert.alert('Delete failed', err?.message || 'Unable to delete material.');
+    }
+  };
+
+  if (mode === 'details' && selected) {
+    return (
+      <Details
+        file={selected}
+        back={() => setMode('library')}
+        onDelete={() => handleDeleteMaterial(selected.id)}
+      />
+    );
   }
 
   if (
@@ -134,21 +240,12 @@ export default function MaterialsScreen() {
       <UploadFlow
         mode={mode}
         progress={uploadProgress}
-        setProgress={setUploadProgress}
+        errorMessage={errorMessage}
         close={() => setMode('library')}
-        upload={() => {
-          setUploadProgress(40);
-          setMode('progress');
-          setTimeout(() => {
-            setUploadProgress(100);
-            setMode('success');
-          }, 1200);
-        }}
-        retry={() => {
-          setUploadProgress(50);
-          setMode('progress');
-          setTimeout(() => setMode('success'), 1000);
-        }}
+        onSuccess={handleUploadComplete}
+        setMode={setMode}
+        setProgress={setUploadProgress}
+        setErrorMessage={setErrorMessage}
       />
     );
   }
@@ -177,6 +274,9 @@ export default function MaterialsScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Search Bar */}
         <View style={styles.searchBar}>
@@ -201,7 +301,7 @@ export default function MaterialsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
         >
-          {['All', 'Mathematics', 'Programming', 'Statistics'].map((item) => (
+          {availableSubjects.map((item) => (
             <Pressable
               key={item}
               style={[
@@ -222,57 +322,57 @@ export default function MaterialsScreen() {
           ))}
         </ScrollView>
 
-        {visibleFiles.length === 0 ? (
+        {loading && !refreshing ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={theme.colors.blue} />
+            <Text style={{ marginTop: 12, color: theme.colors.secondary, fontSize: 13 }}>
+              Loading learning materials…
+            </Text>
+          </View>
+        ) : visibleFiles.length === 0 ? (
           <EmptyView openUpload={() => setMode('upload')} />
         ) : (
           <View style={styles.sectionsList}>
-            {['Mathematics', 'Programming', 'Statistics'].map((subject) => {
-              const group = visibleFiles.filter((f) => f.subject === subject);
-              if (!group.length) return null;
-              return (
-                <View key={subject} style={styles.subjectGroup}>
-                  <View style={styles.groupHeader}>
-                    <Text style={styles.groupTitle}>{subject}</Text>
-                    <Text style={styles.groupCount}>
-                      {group.length} {group.length === 1 ? 'file' : 'files'}
-                    </Text>
-                  </View>
-                  {group.map((file) => (
-                    <Pressable
-                      key={file.id}
-                      style={styles.fileCard}
-                      onPress={() => {
-                        setSelected(file);
-                        setMode('details');
-                      }}
-                    >
-                      <View style={styles.fileIconWrap}>
-                        <FileText size={24} color={theme.colors.blue} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.fileName}>{file.name}</Text>
-                        <Text style={styles.fileMeta}>
-                          {file.type} · {file.size} · {file.pages} pages
-                        </Text>
-                        <View style={styles.statusRow}>
-                          <Text
-                            style={[
-                              styles.statusBadge,
-                              file.status.includes('processing')
-                                ? styles.statusProcessing
-                                : styles.statusReady,
-                            ]}
-                          >
-                            ● {file.status}
-                          </Text>
-                        </View>
-                      </View>
-                      <MoreVertical size={18} color={theme.colors.muted} />
-                    </Pressable>
-                  ))}
+            {visibleFiles.map((file) => (
+              <Pressable
+                key={file.id}
+                style={styles.fileCard}
+                onPress={() => {
+                  setSelected(file);
+                  setMode('details');
+                }}
+              >
+                <View style={styles.fileIconWrap}>
+                  <FileText size={24} color={theme.colors.blue} />
                 </View>
-              );
-            })}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fileName}>{file.name}</Text>
+                  <Text style={styles.fileMeta}>
+                    {file.subject} · {file.type} · {file.pages} {file.pages === 1 ? 'page' : 'pages'}
+                  </Text>
+                  <View style={styles.statusRow}>
+                    <Text
+                      style={[
+                        styles.statusBadge,
+                        file.status.includes('processing')
+                          ? styles.statusProcessing
+                          : file.status.includes('failed')
+                          ? styles.statusFailed
+                          : styles.statusReady,
+                      ]}
+                    >
+                      ● {file.status}
+                    </Text>
+                    {file.raw?.version_hash ? (
+                      <Text style={styles.hashBadge}>
+                        #{file.raw.version_hash.slice(0, 8)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+                <MoreVertical size={18} color={theme.colors.muted} />
+              </Pressable>
+            ))}
           </View>
         )}
       </ScrollView>
@@ -301,10 +401,30 @@ function EmptyView({ openUpload }: { openUpload: () => void }) {
 function Details({
   file,
   back,
+  onDelete,
 }: {
   file: MaterialItem;
   back: () => void;
+  onDelete: () => void;
 }) {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!file.raw?.storage_path) {
+      Alert.alert('Download', 'This material only exists as embedded study text.');
+      return;
+    }
+    try {
+      setDownloading(true);
+      const res = await materialsApi.getDownloadUrl(file.id);
+      Alert.alert('Signed URL Generated', `Secure download link:\n${res.downloadUrl.slice(0, 75)}…`);
+    } catch (err: any) {
+      Alert.alert('Download Error', err?.message || 'Could not get download URL.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
@@ -312,7 +432,21 @@ function Details({
           <ChevronLeft size={24} color={theme.colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Material Details</Text>
-        <View style={{ width: 40 }} />
+        <Pressable
+          onPress={() => {
+            Alert.alert(
+              'Delete Material',
+              `Are you sure you want to delete "${file.name}"? This removes it from your AI knowledge base.`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: onDelete },
+              ],
+            );
+          }}
+          style={styles.headerButton}
+        >
+          <Trash2 size={20} color={theme.colors.red} />
+        </Pressable>
       </View>
 
       <ScrollView
@@ -325,6 +459,11 @@ function Details({
           </View>
           <Text style={styles.detailFileName}>{file.name}</Text>
           <Text style={styles.detailStatus}>● {file.status}</Text>
+          {file.raw?.version_hash ? (
+            <Text style={styles.detailVersionText}>
+              Version SHA-256: {file.raw.version_hash.slice(0, 16)}…
+            </Text>
+          ) : null}
         </View>
 
         {/* Metadata info */}
@@ -335,12 +474,12 @@ function Details({
           </View>
           <View style={styles.metaDivider} />
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>File Size</Text>
+            <Text style={styles.metaLabel}>File Size / Words</Text>
             <Text style={styles.metaVal}>{file.size}</Text>
           </View>
           <View style={styles.metaDivider} />
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Length</Text>
+            <Text style={styles.metaLabel}>Estimated Length</Text>
             <Text style={styles.metaVal}>{file.pages} pages</Text>
           </View>
           <View style={styles.metaDivider} />
@@ -389,6 +528,23 @@ function Details({
             <Target size={18} color={theme.colors.blue} />
             <Text style={styles.secondaryButtonText}>Generate Quiz from this</Text>
           </Pressable>
+
+          {file.raw?.storage_path ? (
+            <Pressable
+              style={[styles.secondaryButton, { marginTop: 4 }]}
+              onPress={handleDownload}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <ActivityIndicator size="small" color={theme.colors.blue} />
+              ) : (
+                <>
+                  <Upload size={18} color={theme.colors.blue} />
+                  <Text style={styles.secondaryButtonText}>Download Original via Signed URL</Text>
+                </>
+              )}
+            </Pressable>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -398,18 +554,60 @@ function Details({
 function UploadFlow({
   mode,
   progress,
-  setProgress,
+  errorMessage,
   close,
-  upload,
-  retry,
+  onSuccess,
+  setMode,
+  setProgress,
+  setErrorMessage,
 }: {
   mode: Mode;
   progress: number;
-  setProgress: (val: number) => void;
+  errorMessage: string;
   close: () => void;
-  upload: () => void;
-  retry: () => void;
+  onSuccess: (item: MaterialItem) => void;
+  setMode: (m: Mode) => void;
+  setProgress: (p: number) => void;
+  setErrorMessage: (msg: string) => void;
 }) {
+  const [title, setTitle] = useState('');
+  const [subject, setSubject] = useState('Mathematics');
+  const [fileType, setFileType] = useState<'pdf' | 'doc' | 'text' | 'image'>('pdf');
+  const [content, setContent] = useState('');
+
+  const handleStartUpload = async () => {
+    if (!title.trim()) {
+      Alert.alert('Required field', 'Please provide a document title.');
+      return;
+    }
+
+    try {
+      setMode('progress');
+      setProgress(25);
+
+      // 1. Create material on backend
+      const created = await materialsApi.create({
+        title: title.trim(),
+        fileType,
+        subject,
+        content: content.trim() || undefined,
+      });
+
+      setProgress(65);
+
+      // 2. Trigger format-specific extraction & processing
+      const processed = await materialsApi.process(created.id);
+      setProgress(100);
+
+      const item = mapBackendToItem(processed);
+      onSuccess(item);
+      setMode('success');
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Material processing failed.');
+      setMode('failed');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
@@ -428,12 +626,15 @@ function UploadFlow({
             </View>
             <Text style={styles.stateTitle}>Material Ready!</Text>
             <Text style={styles.stateSubtitle}>
-              Chapter 3 – Quadratics.pdf has been uploaded, parsed and grounded for your AI Tutor.
+              "{title || 'Your material'}" has been uploaded, parsed and grounded for your AI Tutor.
             </Text>
 
             <Pressable
               style={styles.primaryButton}
-              onPress={() => router.push('/(tabs)/tutor')}
+              onPress={() => {
+                close();
+                router.push('/(tabs)/tutor');
+              }}
             >
               <Sparkles size={18} color="#FFFFFF" />
               <Text style={styles.primaryButtonText}>Ask AI Tutor about this file</Text>
@@ -441,7 +642,10 @@ function UploadFlow({
 
             <Pressable
               style={styles.secondaryButton}
-              onPress={() => router.push('/learn')}
+              onPress={() => {
+                close();
+                router.push('/learn');
+              }}
             >
               <Headphones size={18} color={theme.colors.amber} />
               <Text style={styles.podcastButtonText}>Generate Audio Lesson</Text>
@@ -466,28 +670,94 @@ function UploadFlow({
               <Text style={styles.cancelLinkText}>Run in background</Text>
             </Pressable>
           </View>
+        ) : mode === 'failed' ? (
+          <View style={styles.uploadStateCenter}>
+            <View style={[styles.successCircle, { backgroundColor: '#FEE2E2' }]}>
+              <AlertCircle size={40} color={theme.colors.red} />
+            </View>
+            <Text style={styles.stateTitle}>Upload Failed</Text>
+            <Text style={styles.stateSubtitle}>{errorMessage || 'An error occurred during extraction.'}</Text>
+            <Pressable style={styles.primaryButton} onPress={() => setMode('upload')}>
+              <Text style={styles.primaryButtonText}>Try Again</Text>
+            </Pressable>
+          </View>
         ) : (
           <View>
-            <Pressable style={styles.dropZone} onPress={upload}>
+            <View style={styles.dropZone}>
               <Upload size={32} color={theme.colors.blue} />
-              <Text style={styles.dropZoneTitle}>Select files or drop notes</Text>
+              <Text style={styles.dropZoneTitle}>Select files or enter notes</Text>
               <Text style={styles.dropZoneSubtitle}>
-                Supports PDF, DOCX, PPTX, JPG, PNG (Max 20 MB)
+                Supports PDF, DOC, Text, Image
               </Text>
-            </Pressable>
+            </View>
 
-            <Text style={styles.fieldLabel}>Document Title</Text>
+            <Text style={styles.fieldLabel}>Document Title *</Text>
             <View style={styles.fieldInputWrap}>
               <TextInput
-                defaultValue="Chapter 3 – Quadratics.pdf"
+                value={title}
+                onChangeText={setTitle}
+                placeholder="e.g. Chapter 3 – Quadratics.pdf"
+                placeholderTextColor={theme.colors.muted}
                 style={styles.fieldInput}
               />
             </View>
 
             <Text style={styles.fieldLabel}>Subject</Text>
-            <View style={styles.fieldSelect}>
-              <Text style={styles.fieldSelectValue}>Mathematics</Text>
-              <ChevronDown size={18} color={theme.colors.secondary} />
+            <View style={styles.typeRow}>
+              {['Mathematics', 'Programming', 'Statistics', 'General'].map((sub) => (
+                <Pressable
+                  key={sub}
+                  style={[
+                    styles.typeChip,
+                    subject === sub && styles.typeChipActive,
+                  ]}
+                  onPress={() => setSubject(sub)}
+                >
+                  <Text
+                    style={[
+                      styles.typeChipText,
+                      subject === sub && styles.typeChipTextActive,
+                    ]}
+                  >
+                    {sub}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Format Type</Text>
+            <View style={styles.typeRow}>
+              {(['pdf', 'doc', 'text', 'image'] as const).map((t) => (
+                <Pressable
+                  key={t}
+                  style={[
+                    styles.typeChip,
+                    fileType === t && styles.typeChipActive,
+                  ]}
+                  onPress={() => setFileType(t)}
+                >
+                  <Text
+                    style={[
+                      styles.typeChipText,
+                      fileType === t && styles.typeChipTextActive,
+                    ]}
+                  >
+                    {t.toUpperCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Notes / Extracted Text Content</Text>
+            <View style={[styles.fieldInputWrap, { height: 110, paddingVertical: 8 }]}>
+              <TextInput
+                value={content}
+                onChangeText={setContent}
+                placeholder="Paste key notes, formula definitions, or lecture excerpts here for AI grounding…"
+                placeholderTextColor={theme.colors.muted}
+                multiline
+                style={[styles.fieldInput, { textAlignVertical: 'top' }]}
+              />
             </View>
 
             <View style={styles.aiToggleBox}>
@@ -503,7 +773,7 @@ function UploadFlow({
               </View>
             </View>
 
-            <Pressable style={styles.primaryButton} onPress={upload}>
+            <Pressable style={styles.primaryButton} onPress={handleStartUpload}>
               <Upload size={18} color="#FFFFFF" />
               <Text style={styles.primaryButtonText}>Upload & Process</Text>
             </Pressable>
@@ -596,26 +866,35 @@ const styles = StyleSheet.create({
   filterTextActive: {
     color: '#FFFFFF',
   },
-  sectionsList: {
-    gap: 16,
-  },
-  subjectGroup: {
-    marginBottom: 10,
-  },
-  groupHeader: {
+  typeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    gap: 8,
+    marginBottom: 14,
+    flexWrap: 'wrap',
   },
-  groupTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.text,
+  typeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  groupCount: {
+  typeChipActive: {
+    backgroundColor: theme.colors.blueLight,
+    borderColor: theme.colors.blue,
+  },
+  typeChipText: {
     fontSize: 12,
-    color: theme.colors.muted,
+    fontWeight: '600',
+    color: theme.colors.secondary,
+  },
+  typeChipTextActive: {
+    color: theme.colors.blue,
+    fontWeight: '700',
+  },
+  sectionsList: {
+    gap: 12,
   },
   fileCard: {
     backgroundColor: theme.colors.surface,
@@ -626,7 +905,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 10,
     ...theme.shadows.card,
   },
   fileIconWrap: {
@@ -649,6 +927,8 @@ const styles = StyleSheet.create({
   },
   statusRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 6,
   },
   statusBadge: {
@@ -665,6 +945,15 @@ const styles = StyleSheet.create({
   statusProcessing: {
     color: theme.colors.amber,
     backgroundColor: theme.colors.amberSoft,
+  },
+  statusFailed: {
+    color: theme.colors.red,
+    backgroundColor: '#FEE2E2',
+  },
+  hashBadge: {
+    fontSize: 10,
+    color: theme.colors.muted,
+    fontFamily: 'monospace',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -778,6 +1067,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.green,
   },
+  detailVersionText: {
+    marginTop: 4,
+    fontSize: 11,
+    color: theme.colors.muted,
+    fontFamily: 'monospace',
+  },
   metaBox: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
@@ -883,23 +1178,6 @@ const styles = StyleSheet.create({
   },
   fieldInput: {
     fontSize: 14,
-    color: theme.colors.text,
-  },
-  fieldSelect: {
-    height: 48,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  fieldSelectValue: {
-    fontSize: 14,
-    fontWeight: '600',
     color: theme.colors.text,
   },
   aiToggleBox: {

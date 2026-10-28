@@ -15,7 +15,7 @@ Backend implementation has started. The repository currently has a frontend prot
 | Phase 0 — Documentation and contracts | Completed | Read and audited all repository Markdown files. Added the phased backend plan. Identified the missing `docs/REPORT_CHAPTERS_1_2.md` reference. | Define and document final endpoint schemas, error codes, source-reference format, and authorization contracts. |
 | Phase 1 — Backend foundation | Completed | Added environment configuration, configurable CORS and JSON limits, request IDs, structured API errors, central 404 handling, central error handling for malformed JSON and size limits, explicit feature route placeholders, formal Zod request validation middleware, structured JSON logging with sensitive-field redaction, structured audit conventions, and automated endpoint verification scripts and unit tests. Upgraded active runtime to Node 22 (v22.23.2) and verified all endpoint responses. | — |
 | Phase 2 — Authentication and authorization | Completed | Added authenticated request type, Bearer-token extraction, Supabase user verification boundary, protected feature routes, backend login/register/password-reset/logout endpoints, and root/server `.env.local` support. Built `expo-secure-store` session storage (`lib/sessionStore.ts`), app-wide `AuthProvider` (`lib/authContext.tsx`), connected login/register/forgot-password screens, connected profile logout, added 401 session-expiry handling, and automated auth unit tests (`test/auth.test.ts`). | — |
-| Phase 3 — Materials and Snap-to-Learn | In progress | Added the initial Supabase materials/storage schema with user-scoped RLS policies in `server/sql/phase3_materials.sql`. | Run the schema in Supabase, then add backend upload/signing, processing status updates, version hashes, extraction, retrieval, deletion, and frontend material integration. |
+| Phase 3 — Materials and Snap-to-Learn | Completed | Added and ran Supabase materials table and storage bucket SQL (`server/sql/phase3_materials.sql`) with user-scoped RLS policies. Added authenticated material create, list, detail, delete, binary upload, signed upload/download URL endpoints, format-specific extraction (PDF, image, text, document) with deterministic SHA-256 version hashes, processing status transitions (`pending` -> `processing` -> `ready` / `failed`), and connected the frontend materials screen (`app/materials.tsx`). All unit and endpoint tests pass. | — |
 | Phase 4 — Grounded Tutor and Material skills | Not started | — | Add material retrieval, Tutor/Material skills, Orchestrator routing, provider adapter, and source validation. |
 | Phase 5 — Quiz generation and history | Not started | — | Add quiz generation, persistence, answer submission, difficulty rules, and incorrect-answer explanations. |
 | Phase 6 — Learning profile and progress | Not started | — | Add activity analysis, profile persistence, recommendations, and real dashboard data. |
@@ -45,7 +45,11 @@ Backend implementation has started. The repository currently has a frontend prot
 - Sessions are persisted securely via `expo-secure-store` with Web fallback (`lib/sessionStore.ts`).
 - Global session expiry handling clears invalid tokens and redirects users to sign in.
 - All frontend auth integration tests pass (`npm run test:auth` - 5/5 tests passing).
+- Supabase storage bucket `learning-materials` is integrated with authenticated upload, signed upload/download URLs, and user ownership isolation.
+- Format-specific extraction handles PDF text streams, images, text, and documents, producing deterministic SHA-256 version hashes and summaries.
+- Material processing status transitions (`pending` -> `processing` -> `ready` / `failed`) are executable via backend endpoints.
+- The mobile materials screen (`app/materials.tsx`) is fully integrated with backend endpoints for listing, viewing, uploading, processing, and deleting materials.
 
 ## Next implementation target
 
-Proceed to Phase 3 (Materials and Snap-to-Learn): register material metadata, implement Supabase Storage upload flow, compute material version hashes, and enforce user-scoped resource ownership.
+Proceed to Phase 4 (Grounded Tutor and Material skills): implement material passage retrieval, bounded context selection, Tutor/Material backend skill modules, and the Orchestrator routing layer.

@@ -225,6 +225,82 @@ export const authApi = {
   },
 };
 
+export interface MaterialItem {
+  id: string;
+  user_id: string;
+  title: string;
+  subject_id?: string;
+  material_type: string;
+  processing_status: 'pending' | 'processing' | 'ready' | 'failed';
+  version_hash?: string | null;
+  storage_path?: string | null;
+  extracted_text?: string | null;
+  processing_error?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateMaterialParams {
+  title: string;
+  fileType: 'pdf' | 'image' | 'text' | 'doc';
+  fileName?: string;
+  subject?: string;
+  content?: string;
+}
+
+export interface UploadBinaryParams {
+  fileName: string;
+  mimeType?: string;
+  dataBase64: string;
+}
+
+export const materialsApi = {
+  list: async (): Promise<MaterialItem[]> => {
+    const res = await request<{ materials: MaterialItem[] }>('/api/materials', { method: 'GET' });
+    return res.materials;
+  },
+  get: async (id: string): Promise<MaterialItem> => {
+    const res = await request<{ material: MaterialItem }>(`/api/materials/${id}`, { method: 'GET' });
+    return res.material;
+  },
+  create: async (params: CreateMaterialParams): Promise<MaterialItem> => {
+    const res = await request<{ material: MaterialItem }>('/api/materials', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    return res.material;
+  },
+  uploadBinary: async (id: string, params: UploadBinaryParams): Promise<MaterialItem> => {
+    const res = await request<{ material: MaterialItem }>(`/api/materials/${id}/upload`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    return res.material;
+  },
+  getUploadUrl: async (id: string, fileName: string): Promise<{ uploadUrl: string; storagePath: string }> => {
+    return request<{ uploadUrl: string; storagePath: string }>(`/api/materials/${id}/upload-url`, {
+      method: 'POST',
+      body: JSON.stringify({ fileName }),
+    });
+  },
+  getDownloadUrl: async (id: string): Promise<{ downloadUrl: string; expiresIn: number }> => {
+    return request<{ downloadUrl: string; expiresIn: number }>(`/api/materials/${id}/download-url`, {
+      method: 'GET',
+    });
+  },
+  process: async (id: string): Promise<MaterialItem> => {
+    const res = await request<{ material: MaterialItem }>(`/api/materials/${id}/process`, {
+      method: 'POST',
+    });
+    return res.material;
+  },
+  delete: async (id: string): Promise<void> => {
+    await request<void>(`/api/materials/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export const agentApi = {
   createAudioTranscript: (requestText: string, materialIds: string[]) =>
     request<{ transcript: string }>('/api/audio/transcript', {
