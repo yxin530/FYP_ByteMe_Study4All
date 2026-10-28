@@ -321,3 +321,16 @@ export const tutorApi = {
     });
   },
 };
+
+export type QuizQuestion = { id: string; question: string; options: string[]; difficulty: 'easy' | 'medium' | 'hard' };
+export type QuizGenerationResponse = { quizId: string; subject: string; topic: string; difficulty: 'easy' | 'medium' | 'hard'; questions: QuizQuestion[]; sourceReferences: Array<{ materialId: string; materialVersionHash: string; title: string; excerpt: string }>; status: string };
+export type QuizSubmissionResponse = { quizId: string; score: number; total: number; percentage: number; recommendedDifficulty: 'easy' | 'medium' | 'hard'; status: string };
+
+export const quizApi = {
+  generate: async (params: { subject: string; topic: string; materialIds: string[]; difficulty?: 'easy' | 'medium' | 'hard'; questionCount?: number }): Promise<QuizGenerationResponse> =>
+    request<QuizGenerationResponse>('/api/quiz/generate', { method: 'POST', body: JSON.stringify(params) }),
+  submit: async (quizId: string, answers: Array<{ questionId: string; answer: string }>): Promise<QuizSubmissionResponse> =>
+    request<QuizSubmissionResponse>('/api/quiz/submit', { method: 'POST', body: JSON.stringify({ quizId, answers }) }),
+  explain: async (quizId: string, questionId: string): Promise<{ questionId: string; explanation: string; correctAnswer: string; sourceReferences: unknown[]; status: string }> =>
+    request('/api/quiz/explain', { method: 'POST', body: JSON.stringify({ quizId, questionId }) }),
+};

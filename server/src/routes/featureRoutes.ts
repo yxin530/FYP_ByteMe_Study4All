@@ -20,7 +20,7 @@ import {
   uploadMaterialBinary,
 } from '../services/materialService.js';
 import { explainSchema, tutorChatSchema } from '../schemas/learningSchemas.js';
-import { generateQuizSchema } from '../schemas/quizSchemas.js';
+import { generateQuizSchema, submitQuizSchema, explainQuizAnswerSchema } from '../schemas/quizSchemas.js';
 import {
   audioTranscriptSchema,
   audioGenerateSchema,
@@ -29,6 +29,7 @@ import {
 import { requireAuth } from '../security/auth.js';
 import type { AuthenticatedRequest } from '../security/auth.js';
 import { routeTutorRequest } from '../services/orchestratorService.js';
+import { generateQuiz, submitQuiz, explainQuizAnswer } from '../services/quizSkill.js';
 
 const router = Router();
 
@@ -138,7 +139,24 @@ router.post('/tutor/chat', validateBody(tutorChatSchema), async (req, res, next)
     res.json({ ...routed.result, requestId: routed.requestId, agent: routed.agent });
   } catch (error) { next(error); }
 });
-router.post('/quiz/generate', validateBody(generateQuizSchema), pending('Quiz generation'));
+router.post('/quiz/generate', validateBody(generateQuizSchema), async (req, res, next) => {
+  try {
+    const authenticated = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string };
+    res.status(201).json(await generateQuiz(req.body, authenticated.user, authenticated.accessToken));
+  } catch (error) { next(error); }
+});
+router.post('/quiz/submit', validateBody(submitQuizSchema), async (req, res, next) => {
+  try {
+    const authenticated = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string };
+    res.json(await submitQuiz(req.body, authenticated.user, authenticated.accessToken));
+  } catch (error) { next(error); }
+});
+router.post('/quiz/explain', validateBody(explainQuizAnswerSchema), async (req, res, next) => {
+  try {
+    const authenticated = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string };
+    res.json(await explainQuizAnswer(req.body.quizId, req.body.questionId, authenticated.user, authenticated.accessToken));
+  } catch (error) { next(error); }
+});
 router.post('/audio/transcript', validateBody(audioTranscriptSchema), pending('Audio transcript generation'));
 router.post('/audio/generate', validateBody(audioGenerateSchema), pending('Audio generation'));
 router.get('/audio/:id', validateRequest({ params: audioParamsSchema }), pending('Audio retrieval'));
