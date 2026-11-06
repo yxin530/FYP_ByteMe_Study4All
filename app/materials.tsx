@@ -49,52 +49,6 @@ export type MaterialItem = {
   raw?: BackendMaterial;
 };
 
-const initialFallbackFiles: MaterialItem[] = [
-  {
-    id: 'mat-demo-1',
-    name: 'Chapter 3 – Quadratics.pdf',
-    subject: 'Mathematics',
-    type: 'PDF',
-    size: '2.4 MB',
-    status: 'Ready for AI',
-    pages: 24,
-    uploadedDate: '2 Oct 2026',
-    summary: [
-      'Standard form of a quadratic equation: ax² + bx + c = 0',
-      'Solving by factorising and by the quadratic formula',
-      'Interpreting roots and vertex on parabolic graphs',
-    ],
-  },
-  {
-    id: 'mat-demo-2',
-    name: 'Chapter 4 – Functions & Graphs.pdf',
-    subject: 'Mathematics',
-    type: 'PDF',
-    size: '3.1 MB',
-    status: 'Ready for AI',
-    pages: 32,
-    uploadedDate: '3 Oct 2026',
-    summary: [
-      'Domain, range, and composite functions',
-      'Inverse function determination and symmetry',
-    ],
-  },
-  {
-    id: 'mat-demo-3',
-    name: 'Python Basics – Week 4.pptx',
-    subject: 'Programming',
-    type: 'PPTX',
-    size: '5.1 MB',
-    status: 'Ready for AI',
-    pages: 18,
-    uploadedDate: '28 Sep 2026',
-    summary: [
-      'For loops, while loops, and range iteration',
-      'Recursive function patterns and base termination cases',
-    ],
-  },
-];
-
 function mapBackendToItem(m: BackendMaterial): MaterialItem {
   const typeName = (m.material_type || 'PDF').toUpperCase();
   const summaryPoints = m.extracted_text
@@ -156,7 +110,7 @@ export default function MaterialsScreen() {
 
   const fetchMaterials = async () => {
     if (!isAuthenticated) {
-      setFiles(initialFallbackFiles);
+      setFiles([]);
       setLoading(false);
       return;
     }
@@ -164,14 +118,15 @@ export default function MaterialsScreen() {
     try {
       setLoading(true);
       const list = await materialsApi.list();
+      setErrorMessage('');
       if (list && list.length > 0) {
         setFiles(list.map(mapBackendToItem));
       } else {
         setFiles([]);
       }
-    } catch {
-      // Fallback gracefully to demo files in offline/development mode
-      setFiles(initialFallbackFiles);
+    } catch (err: any) {
+      setFiles([]);
+      setErrorMessage(err?.message || 'Unable to load your learning materials. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -294,6 +249,16 @@ export default function MaterialsScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        {errorMessage ? (
+          <View style={styles.errorBanner}>
+            <AlertCircle size={16} color={theme.colors.red} />
+            <Text style={styles.errorBannerText}>{errorMessage}</Text>
+            <Pressable onPress={fetchMaterials} accessibilityLabel="Retry loading materials">
+              <RefreshCw size={16} color={theme.colors.blue} />
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* Filter Pills */}
         <ScrollView
@@ -840,6 +805,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: theme.colors.text,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    marginBottom: 14,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.redSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.redBorder,
+  },
+  errorBannerText: {
+    flex: 1,
+    color: theme.colors.red,
+    fontSize: 12,
   },
   filterRow: {
     flexDirection: 'row',

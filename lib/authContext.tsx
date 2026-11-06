@@ -25,7 +25,6 @@ interface AuthContextValue {
   register: (params: RegisterParams) => Promise<void>;
   forgotPassword: (email: string) => Promise<{ status: string }>;
   logout: () => Promise<void>;
-  loginDemo: () => Promise<void>;
   dismissSessionExpired: () => void;
 }
 
@@ -109,22 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginDemo = async (): Promise<void> => {
-    const demoSession: AuthSession = {
-      access_token: 'demo-student-token-aina',
-      expires_in: 86400 * 7,
-      user: {
-        id: 'demo-student-aina',
-        name: 'Aina Rahman',
-        email: 'aina.rahman@student.edu.my',
-        level: 'Undergraduate',
-      },
-    };
-    await saveSession(demoSession);
-    setSession(demoSession);
-    setSessionExpired(false);
-  };
-
   const dismissSessionExpired = () => {
     setSessionExpired(false);
   };
@@ -144,7 +127,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         forgotPassword,
         logout,
-        loginDemo,
         dismissSessionExpired,
       }}
     >
