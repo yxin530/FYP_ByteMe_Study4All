@@ -44,6 +44,14 @@ export async function reviseTranscript(id: string, input: AudioTranscriptRevisio
   return rows[0];
 }
 
+export async function approveTranscript(id: string, user: AuthenticatedUser, token: string): Promise<AudioTranscriptRecord> {
+  const existing = await getTranscript(id, user, token);
+  const rows = await db<AudioTranscriptRecord[]>(`/rest/v1/audio_transcripts?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(user.id)}`, token, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ transcript_status: 'approved', updated_at: new Date().toISOString() }) });
+  if (!rows[0]) throw new ApiError(404, 'AUDIO_TRANSCRIPT_NOT_FOUND', 'The audio transcript was not found.');
+  recordAuditEvent({ event: 'audio_transcript', action: 'approve', actor: { id: user.id }, resource: { type: 'audio_transcript', id: existing.id, materialIds: existing.material_ids, materialVersionHashes: existing.material_version_hashes }, outcome: 'success' });
+  return rows[0];
+}
+
 export async function getTranscript(id: string, user: AuthenticatedUser, token: string): Promise<AudioTranscriptRecord> {
   const rows = await db<AudioTranscriptRecord[]>(`/rest/v1/audio_transcripts?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(user.id)}&limit=1`, token);
   if (!rows[0]) throw new ApiError(404, 'AUDIO_TRANSCRIPT_NOT_FOUND', 'The audio transcript was not found.');

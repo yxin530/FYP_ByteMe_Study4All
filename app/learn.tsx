@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -65,6 +66,7 @@ Keep practicing, and try the quick quiz right after this lesson!`
   const [sourceMaterial, setSourceMaterial] = useState('Select ready material in Snap-to-Learn');
   const [transcriptId, setTranscriptId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null);
 
   useEffect(() => {
@@ -86,11 +88,18 @@ Keep practicing, and try the quick quiz right after this lesson!`
         setError('Select or upload a ready learning material before creating an audio lesson.');
         return;
       }
-      const result = await agentApi.createAudioTranscript(request.trim(), [selectedMaterial.id]);
-      if (result?.transcript) {
-        setTranscript(result.transcript);
-        setTranscriptId(result.id);
-        setSourceMaterial(result.source_references.map((source) => source.title).join(', '));
+      if (transcriptId) {
+        const result = await agentApi.generateAudio(transcriptId, undefined, 'en');
+        if (result.audio_status !== 'completed' || !result.playback_url) throw new Error(result.error_message ?? 'Audio generation did not complete.');
+        setAudioUrl(result.playback_url);
+        setIsPlaying(true);
+      } else {
+        const result = await agentApi.createAudioTranscript(request.trim(), [selectedMaterial.id]);
+        if (result?.transcript) {
+          setTranscript(result.transcript);
+          setTranscriptId(result.id);
+          setSourceMaterial(result.source_references.map((source) => source.title).join(', '));
+        }
       }
     } catch (caught: any) {
       setError(caught?.message ?? 'Unable to create a grounded transcript. Select relevant ready material first.');
@@ -176,7 +185,14 @@ Keep practicing, and try the quick quiz right after this lesson!`
 
             <Pressable
               style={styles.playButton}
-              onPress={() => setIsPlaying(!isPlaying)}
+              onPress={async () => {
+                if (audioUrl) {
+                  await Linking.openURL(audioUrl);
+                  setIsPlaying(true);
+                } else {
+                  setIsPlaying(!isPlaying);
+                }
+              }}
             >
               {isPlaying ? (
                 <Pause size={24} color="#FFFFFF" />
@@ -247,8 +263,8 @@ Keep practicing, and try the quick quiz right after this lesson!`
             accessibilityLabel="Editable grounded transcript"
           />
           {transcriptId ? (
-            <Pressable
-              onPress={async () => {
+            <View>
+              <Pressable onPress={async () => {
                 try {
                   setError(null);
                   const saved = await agentApi.reviseAudioTranscript(transcriptId, transcript);
@@ -260,7 +276,14 @@ Keep practicing, and try the quick quiz right after this lesson!`
               style={styles.saveTranscriptButton}
             >
               <Text style={styles.footerLinkText}>Save transcript revision</Text>
-            </Pressable>
+              </Pressable>
+              <Pressable onPress={async () => {
+                try { setError(null); await agentApi.approveAudioTranscript(transcriptId); setTranscript((value) => value); }
+                catch (caught: any) { setError(caught?.message ?? 'Unable to approve transcript.'); }
+              }} style={styles.saveTranscriptButton}>
+                <Text style={styles.footerLinkText}>Approve transcript for audio</Text>
+              </Pressable>
+            </View>
           ) : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
@@ -303,7 +326,7 @@ Keep practicing, and try the quick quiz right after this lesson!`
             ) : (
               <>
                 <Headphones size={18} color="#FFFFFF" />
-                <Text style={styles.generateButtonText}>Generate Lesson Audio</Text>
+              <Text style={styles.generateButtonText}>{transcriptId ? 'Generate Lesson Audio' : 'Create Grounded Transcript'}</Text>
               </>
             )}
           </Pressable>

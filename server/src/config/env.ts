@@ -21,4 +21,7 @@ export const env = {
   llmApiKey: process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY,
   llmModel: process.env.LLM_MODEL ?? 'gpt-4o-mini',
   llmBaseUrl: (process.env.LLM_BASE_URL ?? 'https://api.openai.com/v1').replace(/\/$/, ''),
+  elevenLabsApiKey: process.env.ELEVENLABS_API_KEY,
+  elevenLabsBaseUrl: (process.env.ELEVENLABS_BASE_URL ?? 'https://api.elevenlabs.io').replace(/\/$/, ''),
+  elevenLabsDefaultVoiceId: process.env.ELEVENLABS_DEFAULT_VOICE_ID ?? 'EXAVITQu4vr4xnSDxMaL',
 };

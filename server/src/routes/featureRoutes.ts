@@ -32,7 +32,8 @@ import type { AuthenticatedRequest } from '../security/auth.js';
 import { routeTutorRequest } from '../services/orchestratorService.js';
 import { generateQuiz, submitQuiz, explainQuizAnswer } from '../services/quizSkill.js';
 import { getLearningProfile } from '../services/learningProfileService.js';
-import { createTranscript, getTranscript, reviseTranscript } from '../services/audioTranscriptService.js';
+import { approveTranscript, createTranscript, reviseTranscript } from '../services/audioTranscriptService.js';
+import { generateAudio, getAudio } from '../services/audioGenerationService.js';
 
 const router = Router();
 
@@ -172,9 +173,14 @@ router.post('/audio/transcript', validateBody(audioTranscriptSchema), async (req
 router.patch('/audio/transcript/:id', validateRequest({ params: audioParamsSchema, body: audioTranscriptRevisionSchema }), async (req, res, next) => {
   try { const a = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string }; res.json(await reviseTranscript(String(req.params.id), req.body, a.user, a.accessToken)); } catch (error) { next(error); }
 });
-router.post('/audio/generate', validateBody(audioGenerateSchema), pending('Audio generation'));
+router.post('/audio/transcript/:id/approve', validateRequest({ params: audioParamsSchema }), async (req, res, next) => {
+  try { const a = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string }; res.json(await approveTranscript(String(req.params.id), a.user, a.accessToken)); } catch (error) { next(error); }
+});
+router.post('/audio/generate', validateBody(audioGenerateSchema), async (req, res, next) => {
+  try { const a = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string }; res.status(201).json(await generateAudio(req.body, a.user, a.accessToken)); } catch (error) { next(error); }
+});
 router.get('/audio/:id', validateRequest({ params: audioParamsSchema }), async (req, res, next) => {
-  try { const a = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string }; res.json(await getTranscript(String(req.params.id), a.user, a.accessToken)); } catch (error) { next(error); }
+  try { const a = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string }; res.json(await getAudio(String(req.params.id), a.user, a.accessToken)); } catch (error) { next(error); }
 });
 
 export default router;

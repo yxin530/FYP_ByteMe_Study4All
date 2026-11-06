@@ -9,12 +9,9 @@ export const audioTranscriptSchema = z.object({
 });
 
 export const audioGenerateSchema = z.object({
-  transcript: z.string().trim().min(1, 'Transcript cannot be empty'),
-  materialIds: z.array(z.string().min(1)).min(1, 'At least one material ID is required'),
-  materialVersionHashes: z.array(z.string().min(1)).optional(),
+  transcriptId: z.string().trim().min(1, 'Transcript ID is required'),
   voiceId: z.string().optional(),
   language: z.string().optional(),
-  generationId: z.string().optional(),
 });
 
 export const audioParamsSchema = z.object({

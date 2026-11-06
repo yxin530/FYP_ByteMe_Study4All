@@ -312,6 +312,23 @@ export const agentApi = {
       method: 'PATCH',
       body: JSON.stringify({ transcript }),
     }),
+  approveAudioTranscript: (id: string) =>
+    request<AudioTranscriptRecord>(`/api/audio/transcript/${id}/approve`, { method: 'POST' }),
+  generateAudio: (transcriptId: string, voiceId?: string, language?: string) =>
+    request<AudioGenerationRecord>('/api/audio/generate', {
+      method: 'POST',
+      body: JSON.stringify({ transcriptId, voiceId, language }),
+    }),
+};
+
+export type AudioGenerationRecord = {
+  id: string;
+  transcript_id: string;
+  audio_status: 'pending' | 'completed' | 'failed';
+  playback_url?: string | null;
+  duration_seconds?: number | null;
+  error_code?: string | null;
+  error_message?: string | null;
 };
 
 export type AudioTranscriptRecord = {
