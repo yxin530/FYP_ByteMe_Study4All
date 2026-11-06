@@ -21,7 +21,12 @@ export const audioParamsSchema = z.object({
   id: z.string().trim().min(1, 'Audio ID is required'),
 });
 
+export const audioTranscriptRevisionSchema = z.object({
+  transcript: z.string().trim().min(1, 'Transcript cannot be empty'),
+});
+
 export type AudioTranscriptInput = z.infer<typeof audioTranscriptSchema>;
 export type AudioGenerateInput = z.infer<typeof audioGenerateSchema>;
 export type AudioParamsInput = z.infer<typeof audioParamsSchema>;
+export type AudioTranscriptRevisionInput = z.infer<typeof audioTranscriptRevisionSchema>;
 

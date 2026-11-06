@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -24,7 +24,7 @@ import {
   Target,
   Volume2,
 } from 'lucide-react-native';
-import { agentApi } from '@/lib/api';
+import { agentApi, materialsApi, type MaterialItem } from '@/lib/api';
 import { theme } from '@/lib/theme';
 
 const sampleTopics = [
@@ -62,18 +62,38 @@ If a quadratic cannot easily be factorised, that's when we reach for our trusty 
 Keep practicing, and try the quick quiz right after this lesson!`
   );
   const [loading, setLoading] = useState(false);
-  const [sourceMaterial] = useState('Chapter 3 – Quadratics.pdf (p. 8–14)');
+  const [sourceMaterial, setSourceMaterial] = useState('Select ready material in Snap-to-Learn');
+  const [transcriptId, setTranscriptId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null);
+
+  useEffect(() => {
+    materialsApi.list().then((items) => {
+      const ready = items.find((item) => item.processing_status === 'ready' && item.version_hash);
+      if (ready) {
+        setSelectedMaterial(ready);
+        setSourceMaterial(ready.title);
+      }
+    }).catch(() => undefined);
+  }, []);
 
   async function handleGenerateLesson() {
     if (!request.trim()) return;
     setLoading(true);
+    setError(null);
     try {
-      const result = await agentApi.createAudioTranscript(request.trim(), ['mat-1']);
+      if (!selectedMaterial) {
+        setError('Select or upload a ready learning material before creating an audio lesson.');
+        return;
+      }
+      const result = await agentApi.createAudioTranscript(request.trim(), [selectedMaterial.id]);
       if (result?.transcript) {
         setTranscript(result.transcript);
+        setTranscriptId(result.id);
+        setSourceMaterial(result.source_references.map((source) => source.title).join(', '));
       }
-    } catch {
-      // Keep grounded default if offline/mock
+    } catch (caught: any) {
+      setError(caught?.message ?? 'Unable to create a grounded transcript. Select relevant ready material first.');
     } finally {
       setLoading(false);
     }
@@ -219,7 +239,30 @@ Keep practicing, and try the quick quiz right after this lesson!`
             </View>
             <Text style={styles.transcriptBadge}>Citations Verified</Text>
           </View>
-          <Text style={styles.transcriptBody}>{transcript}</Text>
+          <TextInput
+            value={transcript}
+            onChangeText={setTranscript}
+            multiline
+            style={styles.transcriptBody}
+            accessibilityLabel="Editable grounded transcript"
+          />
+          {transcriptId ? (
+            <Pressable
+              onPress={async () => {
+                try {
+                  setError(null);
+                  const saved = await agentApi.reviseAudioTranscript(transcriptId, transcript);
+                  setTranscriptId(saved.id);
+                } catch (caught: any) {
+                  setError(caught?.message ?? 'Unable to save transcript revision.');
+                }
+              }}
+              style={styles.saveTranscriptButton}
+            >
+              <Text style={styles.footerLinkText}>Save transcript revision</Text>
+            </Pressable>
+          ) : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
 
         {/* Custom Prompt Box */}
@@ -523,6 +566,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.text,
     lineHeight: 21,
+    minHeight: 150,
+    textAlignVertical: 'top',
+  },
+  saveTranscriptButton: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.bg,
+  },
+  errorText: {
+    color: theme.colors.red,
+    fontSize: 12,
+    marginTop: 8,
   },
   composerCard: {
     backgroundColor: theme.colors.surface,

@@ -303,10 +303,28 @@ export const materialsApi = {
 
 export const agentApi = {
   createAudioTranscript: (requestText: string, materialIds: string[]) =>
-    request<{ transcript: string }>('/api/audio/transcript', {
+    request<AudioTranscriptRecord>('/api/audio/transcript', {
       method: 'POST',
       body: JSON.stringify({ requestText, materialIds }),
     }),
+  reviseAudioTranscript: (id: string, transcript: string) =>
+    request<AudioTranscriptRecord>(`/api/audio/transcript/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ transcript }),
+    }),
+};
+
+export type AudioTranscriptRecord = {
+  id: string;
+  request_text: string;
+  transcript: string;
+  transcript_status: 'draft' | 'approved';
+  material_ids: string[];
+  material_version_hashes: string[];
+  source_references: Array<{ materialId: string; materialVersionHash: string; title: string; excerpt: string }>;
+  revision: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type TutorMessage = { id: string; role: 'user' | 'assistant'; content: string };
