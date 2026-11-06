@@ -2,6 +2,7 @@ import type { AuthenticatedUser } from '../security/auth.js';
 import type { ExplainInput, TutorChatInput } from '../schemas/learningSchemas.js';
 import { retrieveMaterialContext, type SourceReference } from './materialRetrievalService.js';
 import { getLlmProvider } from './llmProvider.js';
+import { assertGroundedOutput } from '../security/outputValidation.js';
 
 export type GroundedTutorResult = {
   content: string;
@@ -14,5 +15,6 @@ export async function explain(input: ExplainInput | TutorChatInput, user: Authen
   const query = 'query' in input ? input.query : input.message;
   const context = await retrieveMaterialContext({ query, materialIds: input.materialIds, materialVersionHashes: input.materialVersionHashes }, user, token);
   const generated = await getLlmProvider().generate({ query, format: 'responseFormat' in input ? input.responseFormat ?? 'detailed' : 'conversational', context });
+  assertGroundedOutput(generated.content, context.flatMap((item) => item.passages));
   return { content: generated.content, sourceReferences: context.flatMap((item) => item.passages), limitations: generated.limitations, status: 'complete' };
 }

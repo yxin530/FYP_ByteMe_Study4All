@@ -32,8 +32,12 @@ import type { AuthenticatedRequest } from '../security/auth.js';
 import { routeTutorRequest } from '../services/orchestratorService.js';
 import { generateQuiz, submitQuiz, explainQuizAnswer } from '../services/quizSkill.js';
 import { getLearningProfile } from '../services/learningProfileService.js';
+import { createGroup, createQuest, createRescue, findMatch, listMessages, saveProfile, sendMessage, weeklyQuiz } from '../services/studyFeatureService.js';
+import { groupParamsSchema, groupSchema, matchSchema, messageSchema, questSchema, rescueSchema, studyProfileSchema, weeklyQuizSchema } from '../schemas/studySchemas.js';
 import { approveTranscript, createTranscript, reviseTranscript } from '../services/audioTranscriptService.js';
 import { generateAudio, getAudio } from '../services/audioGenerationService.js';
+import { cancelReminder, createReminder, getPreferences, listReminders, registerToken, removeToken, savePreferences } from '../services/notificationService.js';
+import { deviceTokenSchema, notificationPreferencesSchema, reminderParamsSchema, reminderSchema } from '../schemas/notificationSchemas.js';
 
 const router = Router();
 
@@ -167,6 +171,21 @@ router.get('/profile', async (req, res, next) => {
     res.json(await getLearningProfile(authenticated.user, authenticated.accessToken));
   } catch (error) { next(error); }
 });
+router.post('/study/profile', validateBody(studyProfileSchema), async (req, res, next) => { try { const a = req as any; res.json(await saveProfile(req.body, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.post('/study/match', validateBody(matchSchema), async (req, res, next) => { try { const a = req as any; res.json(await findMatch(req.body.subject, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.post('/study/groups', validateBody(groupSchema), async (req, res, next) => { try { const a = req as any; res.status(201).json(await createGroup(req.body, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.get('/study/groups/:id/messages', validateRequest({ params: groupParamsSchema }), async (req, res, next) => { try { const a = req as any; res.json({ messages: await listMessages(String(req.params.id), a.user, a.accessToken) }); } catch (e) { next(e); } });
+router.post('/study/groups/:id/messages', validateRequest({ params: groupParamsSchema, body: messageSchema }), async (req, res, next) => { try { const a = req as any; res.status(201).json(await sendMessage(String(req.params.id), req.body.body, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.post('/study/groups/:id/weekly-quiz', validateRequest({ params: groupParamsSchema, body: weeklyQuizSchema }), async (req, res, next) => { try { const a = req as any; res.status(201).json(await weeklyQuiz(String(req.params.id), req.body.questionCount, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.post('/study/rescue', validateBody(rescueSchema), async (req, res, next) => { try { const a = req as any; res.status(201).json(await createRescue(req.body, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.post('/study/quest', validateBody(questSchema), async (req, res, next) => { try { const a = req as any; res.status(201).json(await createQuest(req.body, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.get('/notifications/preferences', async (req, res, next) => { try { const a = req as any; res.json(await getPreferences(a.user, a.accessToken)); } catch (e) { next(e); } });
+router.put('/notifications/preferences', validateBody(notificationPreferencesSchema), async (req, res, next) => { try { const a = req as any; res.json(await savePreferences(req.body, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.post('/notifications/device-tokens', validateBody(deviceTokenSchema), async (req, res, next) => { try { const a = req as any; res.status(201).json(await registerToken(req.body, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.delete('/notifications/device-tokens', validateBody(deviceTokenSchema.pick({ token: true })), async (req, res, next) => { try { const a = req as any; res.json(await removeToken(req.body.token, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.get('/notifications/reminders', async (req, res, next) => { try { const a = req as any; res.json({ reminders: await listReminders(a.user, a.accessToken) }); } catch (e) { next(e); } });
+router.post('/notifications/reminders', validateBody(reminderSchema), async (req, res, next) => { try { const a = req as any; res.status(201).json(await createReminder(req.body, a.user, a.accessToken)); } catch (e) { next(e); } });
+router.delete('/notifications/reminders/:id', validateRequest({ params: reminderParamsSchema }), async (req, res, next) => { try { const a = req as any; res.json(await cancelReminder(String(req.params.id), a.user, a.accessToken)); } catch (e) { next(e); } });
 router.post('/audio/transcript', validateBody(audioTranscriptSchema), async (req, res, next) => {
   try { const a = req as AuthenticatedRequest & { user: NonNullable<AuthenticatedRequest['user']>; accessToken: string }; res.status(201).json(await createTranscript(req.body, a.user, a.accessToken)); } catch (error) { next(error); }
 });

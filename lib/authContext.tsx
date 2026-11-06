@@ -13,6 +13,7 @@ import {
   type LoginParams,
   type RegisterParams,
 } from './api';
+import { registerForStudyNotifications } from './notifications';
 
 interface AuthContextValue {
   session: AuthSession | null;
@@ -74,6 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerSessionExpiryHandler(null);
     };
   }, []);
+
+  useEffect(() => {
+    if (!session?.access_token) return;
+    registerForStudyNotifications().catch(() => undefined);
+  }, [session?.access_token]);
 
   const login = async (credentials: LoginParams): Promise<void> => {
     const newSession = await authApi.login(credentials);

@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { notFound } from './middleware/notFound.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { rateLimit } from './security/rateLimit.js';
 
 export function createApp(): Express {
   const app = express();
@@ -14,6 +15,7 @@ export function createApp(): Express {
   app.use(express.json({ limit: env.apiJsonLimit }));
   app.use(requestIdMiddleware);
   app.use(requestLogger);
+  app.use(rateLimit);
 
   app.get('/health', (_req, res) => {
     res.json({

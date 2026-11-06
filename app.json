@@ -8,7 +8,8 @@
     "userInterfaceStyle": "light",
     "plugins": [
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      "expo-notifications"
     ],
     "ios": {
       "supportsTablet": true
@@ -16,6 +17,13 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.yx1nnn.aistudy4all"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8ded612c-e419-4115-b347-64079ce15850"
       }
     }
   }

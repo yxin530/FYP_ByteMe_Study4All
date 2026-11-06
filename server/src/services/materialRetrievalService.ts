@@ -1,6 +1,7 @@
 import { ApiError } from '../errors/apiError.js';
 import type { AuthenticatedUser } from '../security/auth.js';
 import { getMaterial } from './materialService.js';
+import { sanitizeMaterialText } from '../security/materialPolicy.js';
 
 export type SourceReference = {
   materialId: string;
@@ -59,7 +60,7 @@ export async function retrieveMaterialContext(
     if (requestedVersion && requestedVersion !== material.version_hash) {
       throw new ApiError(409, 'MATERIAL_VERSION_MISMATCH', `Material ${material.title} has changed. Refresh it and try again.`);
     }
-    const passages = retrieve(material.extracted_text, input.query).map((passage) => ({
+    const passages = retrieve(sanitizeMaterialText(material.extracted_text), input.query).map((passage) => ({
       ...passage,
       materialId: material.id,
       materialVersionHash: material.version_hash!,

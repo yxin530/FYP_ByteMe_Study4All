@@ -384,3 +384,24 @@ export type LearningProfile = {
   status: string;
 };
 export const profileApi = { get: async (): Promise<LearningProfile> => request<LearningProfile>('/api/profile', { method: 'GET' }) };
+
+export const studyApi = {
+  saveProfile: (body: { displayName: string; learningSubjects: string[]; teachingSubjects: string[]; availability: string[]; discoverable: boolean }) => request('/api/study/profile', { method: 'POST', body: JSON.stringify(body) }),
+  findMatch: (subject: string) => request('/api/study/match', { method: 'POST', body: JSON.stringify({ subject }) }),
+  createGroup: (body: { name: string; subject: string; memberIds?: string[] }) => request('/api/study/groups', { method: 'POST', body: JSON.stringify(body) }),
+  messages: (groupId: string) => request<{ messages: Array<{ id: string; group_id: string; user_id: string; body: string; created_at: string }> }>(`/api/study/groups/${groupId}/messages`, { method: 'GET' }),
+  sendMessage: (groupId: string, body: string) => request(`/api/study/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify({ body }) }),
+  weeklyQuiz: (groupId: string, questionCount = 5) => request(`/api/study/groups/${groupId}/weekly-quiz`, { method: 'POST', body: JSON.stringify({ questionCount }) }),
+  rescue: (body: { examDate: string; subjects: Array<{ subject: string; materialIds: string[] }>; availableMinutes: number }) => request('/api/study/rescue', { method: 'POST', body: JSON.stringify(body) }),
+  quest: (body: { subject: string; materialIds: string[] }) => request('/api/study/quest', { method: 'POST', body: JSON.stringify(body) }),
+};
+
+export const notificationApi = {
+  getPreferences: () => request('/api/notifications/preferences', { method: 'GET' }),
+  savePreferences: (body: { pushEnabled: boolean; dailyRemindersEnabled: boolean; reminderTime?: string | null; timezone: string }) => request('/api/notifications/preferences', { method: 'PUT', body: JSON.stringify(body) }),
+  registerDeviceToken: (body: { token: string; platform: 'ios' | 'android' | 'web' }) => request('/api/notifications/device-tokens', { method: 'POST', body: JSON.stringify(body) }),
+  removeDeviceToken: (token: string) => request('/api/notifications/device-tokens', { method: 'DELETE', body: JSON.stringify({ token }) }),
+  listReminders: () => request('/api/notifications/reminders', { method: 'GET' }),
+  createReminder: (body: { title: string; body: string; scheduledFor: string; timezone: string }) => request('/api/notifications/reminders', { method: 'POST', body: JSON.stringify(body) }),
+  cancelReminder: (id: string) => request(`/api/notifications/reminders/${id}`, { method: 'DELETE' }),
+};
