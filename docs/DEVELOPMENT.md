@@ -2,9 +2,9 @@
 
 ## Mobile application
 
-The repository now contains an Expo Router starter using Expo SDK 57, React Native 0.86, and React 19.2.3. Install dependencies with `npm install`, then run `npm run start`. Use `npm run typecheck` to validate TypeScript.
+The repository uses Expo SDK 58, React Native 0.88, and React 19.3.0. Install dependencies with `npm install`, then run `npm run start` to start Metro in Expo Go mode. Install the matching Expo Go app on the target phone and scan the QR code. Use `npm run typecheck` to validate TypeScript.
 
-Expo SDK 57 requires Node.js 22.13.x or newer within the supported Node 22 line. Verify with `node --version` before installing dependencies.
+Expo SDK 58 requires Node.js 22.13.x or newer within the supported Node 22 line. Verify with `node --version` before installing dependencies.
 
 The mobile app is a client only. It handles screens, navigation, user interaction, and playback. It should not contain model prompts, agent orchestration, database credentials, or ElevenLabs secrets.
 

@@ -110,3 +110,11 @@ The cache key should include the request, relevant material version, generated c
 - Keep ElevenLabs credentials server-side.
 - Do not send unrelated student materials to an agent or external provider.
 - Apply retention and deletion rules consistently to source material and generated audio.
+
+## 9. Collaborative whiteboard flow
+
+Whiteboard groups have their own membership and chat. An owner may create an independent group or attach a study group; attaching copies the current study-group membership into the whiteboard group. Membership is checked for every document, chat, history, and AI operation. Owners can delete a group, which cascades to its chat, notes, and revisions.
+
+Each group has one shared notes document. Saves use an expected revision and an atomic database function that writes both the new document and its append-only revision. Clients poll for updates and keep unsaved local text when a newer revision appears; users can merge their draft after the latest saved text. Markdown formatting is supported in the first editor. Freeform drawing and a WYSIWYG rich-text editor are future extensions.
+
+AI questions and proposed edits require the user to select ready materials owned by that user. The active note is passed as user-authored context; learning claims must come from the selected material passages. Proposed edits are returned for review and are saved only after explicit acceptance. Accepted revisions retain their material IDs and version hashes.

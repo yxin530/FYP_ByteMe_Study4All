@@ -405,3 +405,21 @@ export const notificationApi = {
   createReminder: (body: { title: string; body: string; scheduledFor: string; timezone: string }) => request('/api/notifications/reminders', { method: 'POST', body: JSON.stringify(body) }),
   cancelReminder: (id: string) => request(`/api/notifications/reminders/${id}`, { method: 'DELETE' }),
 };
+
+export type WhiteboardDocument = { id: string; group_id: string; title: string; content: string; revision: number; updated_by?: string | null; updated_at: string };
+export type WhiteboardGroup = { id: string; name: string; created_by: string; study_group_id?: string | null; created_at: string };
+export type WhiteboardMessage = { id: string; group_id: string; user_id: string; body: string; created_at: string };
+export type WhiteboardSourceReference = { materialId: string; materialVersionHash: string; title: string; excerpt: string; start: number; end: number };
+export const whiteboardApi = {
+  groups: () => request<{ groups: WhiteboardGroup[] }>('/api/whiteboard/groups', { method: 'GET' }),
+  studyGroups: () => request<{ groups: Array<{ id: string; name: string; subject: string }> }>('/api/whiteboard/study-groups', { method: 'GET' }),
+  createGroup: (body: { name: string; memberIds?: string[]; studyGroupId?: string }) => request<{ group: WhiteboardGroup & { document: WhiteboardDocument } }>('/api/whiteboard/groups', { method: 'POST', body: JSON.stringify(body) }),
+  deleteGroup: (id: string) => request<void>(`/api/whiteboard/groups/${id}`, { method: 'DELETE' }),
+  get: (id: string) => request<{ document: WhiteboardDocument; members: Array<{ user_id: string; role: string }>; messages: WhiteboardMessage[] }>(`/api/whiteboard/groups/${id}`, { method: 'GET' }),
+  history: (id: string) => request<{ revisions: Array<{ id: string; revision: number; content: string; edited_by: string; created_at: string }> }>(`/api/whiteboard/groups/${id}/history`, { method: 'GET' }),
+  sendMessage: (id: string, body: string) => request<{ message: WhiteboardMessage }>(`/api/whiteboard/groups/${id}/messages`, { method: 'POST', body: JSON.stringify({ body }) }),
+  save: (id: string, input: { title: string; content: string; expectedRevision: number }) => request<{ document: WhiteboardDocument }>(`/api/whiteboard/groups/${id}/document`, { method: 'PUT', body: JSON.stringify(input) }),
+  ask: (id: string, question: string, materialIds: string[]) => request<{ answer: string; sourceReferences: WhiteboardSourceReference[]; documentRevision: number; limitations: string[] }>(`/api/whiteboard/groups/${id}/ask`, { method: 'POST', body: JSON.stringify({ question, materialIds }) }),
+  proposeEdit: (id: string, instruction: string, materialIds: string[]) => request<{ proposedContent: string; title: string; expectedRevision: number; sourceReferences: WhiteboardSourceReference[]; limitations: string[]; status: 'pending_acceptance' }>(`/api/whiteboard/groups/${id}/propose-edit`, { method: 'POST', body: JSON.stringify({ instruction, materialIds }) }),
+  acceptEdit: (id: string, input: { title: string; content: string; expectedRevision: number; sourceReferences: Array<{ materialId: string; materialVersionHash: string }> }) => request<{ document: WhiteboardDocument; sourceReferences: WhiteboardSourceReference[] }>(`/api/whiteboard/groups/${id}/accept-edit`, { method: 'POST', body: JSON.stringify(input) }),
+};

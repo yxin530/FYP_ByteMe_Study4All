@@ -124,6 +124,22 @@ Completion gate: security tests cover cross-user access, prompt injection, tool 
 
 Completion gate: the initial acceptance criteria in `docs/REQUIREMENTS.md` are demonstrably satisfied.
 
+## Phase 13 — Collaborative whiteboard and AI-assisted notes
+
+- Add a dedicated Whiteboard screen with independent collaboration groups and an option to attach existing study groups.
+- Add group chat for whiteboard collaborators, with owner-controlled membership and deletion behavior.
+- Synchronize shared notes for authorized members; keep local edits recoverable across reconnects and revision conflicts.
+- Persist document content, revisions, and edit history with workspace membership and ownership checks.
+- Synchronize concurrent edits and recover cleanly from reconnects without silently losing user changes.
+- Show collaborators' presence and editing activity where supported by the client.
+- Let users ask the AI questions about the active document and its explicitly selected, authorized learning materials.
+- Let the AI propose document edits; show the proposed changes and require the user to accept them before applying.
+- Preserve the project's source-grounding rule for learning answers and AI-generated document content, including source material IDs and versions.
+- Keep private notes and shared workspace content isolated by authorization, and provide clear sharing and deletion behavior.
+- Build an Expo-compatible collaborative editing interface, beginning with shared rich-text notes; treat freeform drawing tools as a later extension if needed.
+
+Completion gate: authorized collaborators can edit the same workspace with changes synchronized and recoverable; users can ask grounded questions while editing; AI-proposed edits are reviewable and applied only after user acceptance; access controls and source references are verified.
+
 ## First implementation slice
 
 The first complete vertical slice is:

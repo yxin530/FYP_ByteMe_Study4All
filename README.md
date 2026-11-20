@@ -16,6 +16,7 @@ AI Study4All is a mobile learning application developed by the ByteMe group. It 
 - AI Study Group Match
 - Personalized study recommendations
 - Audio learning with transcript review and text-to-speech
+- Collaborative whiteboards with group chat, shared notes, and grounded AI assistance
 - Progress dashboard, reminders, and notifications
 
 ## Technology stack

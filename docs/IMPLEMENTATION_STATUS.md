@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-10-28
+Last updated: 2026-11-19
 
 This document tracks implementation progress against [`BACKEND_IMPLEMENTATION_PHASES.md`](BACKEND_IMPLEMENTATION_PHASES.md). A phase is only marked complete when its completion gate has been verified.
 
@@ -25,6 +25,7 @@ Backend implementation has started. The repository currently has a frontend prot
 | Phase 10 — Notifications | Implemented — pending deployment verification | Added user-scoped notification preferences, FCM device-token registration/removal, reminder scheduling/cancellation, RLS migration, and mobile API contracts. | Apply `server/sql/phase10_notifications.sql`, configure the FCM provider, and connect native token registration plus scheduled delivery. |
 | Phase 11 — Security, privacy, and audit | Implemented — pending deployment verification | Added shared rate limiting, material prompt-injection filtering, grounded output validation, agent tool allowlists, existing audit/redaction integration, and security-focused verification. | Verify RLS/deletion behavior in Supabase, configure retention policy, and run production security/dependency review. |
 | Phase 12 — Integration and verification | Implemented — pending device/provider verification | Removed fake demo login and demo material fallback; real authentication and backend-confirmed material states are now required. Mobile and server typechecks plus focused tests pass. | Verify complete flows on physical iOS/Android devices with deployed Supabase, LLM, ElevenLabs, Expo notifications, and Phase 7–10 migrations. |
+| Phase 13 — Collaborative whiteboard and AI-assisted notes | In progress | Added a dedicated Whiteboard tab, independent collaboration groups with group chat, optional links to existing study groups, shared markdown notes, revision history, three-second sync polling, optimistic revision checks with a recoverable merge path, grounded AI questions, and review/accept for AI-proposed edits. Migration and RLS isolate group content; accepted AI edits retain material IDs and versions. | Apply `server/sql/phase13_whiteboard.sql`; add/verify live Realtime presence and change subscriptions, and verify authorization, reconnect/conflict recovery, AI source traceability, and deletion on Supabase and devices. Freeform drawing and WYSIWYG rich-text editing remain later extensions. |
 
 ## Current verified facts
 
@@ -63,4 +64,4 @@ Backend implementation has started. The repository currently has a frontend prot
 
 ## Next implementation target
 
-Proceed to Phase 10 — Notifications after applying and verifying the Phase 9 migration and mobile study-feature integration.
+Complete the pending deployment and device/provider verification gates for Phases 8–12, then finish Phase 13 — Collaborative whiteboard and AI-assisted notes.

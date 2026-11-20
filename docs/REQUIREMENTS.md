@@ -41,6 +41,8 @@
 - AI Study Rescue must create a short-term study plan for an upcoming examination.
 - AI Study Group Match must match students using subjects, learning needs, weak topics, study preferences, and availability.
 - The system must support study reminders and notifications.
+- Whiteboard groups must support private group chat and shared, revisioned notes for authorized members. An owner may create an independent group or attach an existing study group.
+- Users must select authorized learning materials before asking grounded whiteboard questions or requesting AI note edits. AI edits require explicit review and acceptance, and accepted content must retain source IDs and versions.
 
 ### Audio learning
 

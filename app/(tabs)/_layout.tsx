@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Bot, CalendarDays, Home, TrendingUp, User } from 'lucide-react-native';
+import { Bot, CalendarDays, Home, TrendingUp, User, Users } from 'lucide-react-native';
 import { Platform, StyleSheet } from 'react-native';
 import { theme } from '@/lib/theme';
 
@@ -39,6 +39,15 @@ export default function TabsLayout() {
           title: 'Study Plan',
           tabBarIcon: ({ color, size, focused }) => (
             <CalendarDays size={size ?? 22} color={color} strokeWidth={focused ? 2.2 : 1.8} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="whiteboard"
+        options={{
+          title: 'Whiteboard',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Users size={size ?? 22} color={color} strokeWidth={focused ? 2.2 : 1.8} />
           ),
         }}
       />

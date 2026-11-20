@@ -9,9 +9,12 @@
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-secure-store",
+      "expo-status-bar"
     ],
     "ios": {
+      "bundleIdentifier": "com.yx1nnn.aistudy4all",
       "supportsTablet": true
     },
     "android": {
