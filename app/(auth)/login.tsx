@@ -20,18 +20,33 @@ import {
   GraduationCap,
   Lock,
   Mail,
+  Sparkles,
 } from 'lucide-react-native';
 import { theme } from '@/lib/theme';
 import { useAuth } from '@/lib/authContext';
 import { ApiClientError } from '@/lib/api';
 
 export default function Login() {
-  const { login, sessionExpired, dismissSessionExpired } = useAuth();
+  const { login, loginDemo, sessionExpired, dismissSessionExpired } = useAuth();
   const [email, setEmail] = useState('aina.rahman@student.edu.my');
   const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleDemoLogin = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      dismissSessionExpired();
+      await loginDemo();
+      router.replace('/(tabs)/home');
+    } catch {
+      setError('Failed to enter demo mode.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -174,6 +189,17 @@ export default function Login() {
                   <ArrowRight size={18} color="#FFFFFF" />
                 </>
               )}
+            </Pressable>
+
+            {/* Demo Mode Button */}
+            <Pressable
+              style={[s.demoButton, loading && s.disabledButton]}
+              onPress={handleDemoLogin}
+              disabled={loading}
+              accessibilityLabel="Explore demo frontend"
+            >
+              <Sparkles size={16} color={theme.colors.violet} />
+              <Text style={s.demoButtonText}>Explore Demo (Frontend Preview)</Text>
             </Pressable>
 
           </View>

@@ -23,10 +23,26 @@ interface AuthContextValue {
   sessionExpired: boolean;
   login: (credentials: LoginParams) => Promise<void>;
   register: (params: RegisterParams) => Promise<void>;
+  loginDemo: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ status: string }>;
   logout: () => Promise<void>;
   dismissSessionExpired: () => void;
 }
+
+export const DEMO_USER: AuthUser = {
+  id: 'demo-student-user',
+  email: 'aina.rahman@student.edu.my',
+  name: 'Aina Rahman',
+  level: 'Undergraduate',
+};
+
+export const DEMO_SESSION: AuthSession = {
+  access_token: 'demo-guest-token',
+  token_type: 'bearer',
+  expires_in: 86400 * 30,
+  expires_at: Date.now() + 86400 * 30 * 1000,
+  user: DEMO_USER,
+};
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -98,6 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return await authApi.forgotPassword({ email });
   };
 
+  const loginDemo = async (): Promise<void> => {
+    await saveSession(DEMO_SESSION);
+    setSession(DEMO_SESSION);
+    setSessionExpired(false);
+  };
+
   const logout = async (): Promise<void> => {
     try {
       await authApi.logout();
@@ -125,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionExpired,
         login,
         register,
+        loginDemo,
         forgotPassword,
         logout,
         dismissSessionExpired,
