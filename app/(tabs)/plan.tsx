@@ -65,6 +65,7 @@ const initialTasks: Task[] = [
 export default function Plan() {
   const [tasks, setTasks] = useState(initialTasks);
   const [day, setDay] = useState('Mon');
+  const [weekOffset, setWeekOffset] = useState(0);
   const [details, setDetails] = useState<Task | null>(null);
   const [rebalance, setRebalance] = useState(false);
   const [empty, setEmpty] = useState(false);
@@ -160,51 +161,84 @@ export default function Plan() {
         showsVerticalScrollIndicator={false}
       >
         {/* Week Selector */}
-        <View style={s.weekTitle}>
-          <Text style={s.sectionTitle}>This week · 5–11 Oct</Text>
-          <View style={s.arrows}>
-            <Pressable style={s.arrowBtn}>
-              <ChevronLeft size={18} color={theme.colors.secondary} />
-            </Pressable>
-            <Pressable style={s.arrowBtn}>
-              <ChevronRight size={18} color={theme.colors.secondary} />
-            </Pressable>
-          </View>
-        </View>
+        {(() => {
+          const now = new Date();
+          const dayOfWeek = (now.getDay() + 6) % 7; // Mon=0 .. Sun=6
+          const monday = new Date(now);
+          monday.setDate(now.getDate() - dayOfWeek + weekOffset * 7);
+          const sunday = new Date(monday);
+          sunday.setDate(monday.getDate() + 6);
+          const fmt = (d: Date) =>
+            d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+          const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(
+            (name, idx) => {
+              const d = new Date(monday);
+              d.setDate(monday.getDate() + idx);
+              return [name, String(d.getDate())] as [string, string];
+            }
+          );
+          const weekLabel =
+            weekOffset === 0
+              ? 'This week'
+              : weekOffset === -1
+              ? 'Last week'
+              : weekOffset === 1
+              ? 'Next week'
+              : weekOffset < 0
+              ? `${Math.abs(weekOffset)}w ago`
+              : `In ${weekOffset}w`;
+          return (
+            <>
+              <View style={s.weekTitle}>
+                <Text style={s.sectionTitle}>
+                  {weekLabel} · {fmt(monday)} – {fmt(sunday)}
+                </Text>
+                <View style={s.arrows}>
+                  <Pressable
+                    style={s.arrowBtn}
+                    onPress={() => setWeekOffset((w) => w - 1)}
+                    accessibilityLabel="Previous week"
+                  >
+                    <ChevronLeft size={18} color={theme.colors.secondary} />
+                  </Pressable>
+                  <Pressable
+                    style={s.arrowBtn}
+                    onPress={() => setWeekOffset((w) => w + 1)}
+                    accessibilityLabel="Next week"
+                  >
+                    <ChevronRight size={18} color={theme.colors.secondary} />
+                  </Pressable>
+                </View>
+              </View>
 
-        {/* Day Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.daysRow}
-        >
-          {[
-            ['Mon', '5'],
-            ['Tue', '6'],
-            ['Wed', '7'],
-            ['Thu', '8'],
-            ['Fri', '9'],
-            ['Sat', '10'],
-            ['Sun', '11'],
-          ].map(([name, date]) => (
-            <Pressable
-              key={name}
-              onPress={() => {
-                setDay(name);
-                setEmpty(name === 'Sun');
-              }}
-              style={[s.day, day === name && s.daySelected]}
-            >
-              <Text style={[s.dayName, day === name && s.dayNameActive]}>
-                {name}
-              </Text>
-              <Text style={[s.dayNumber, day === name && s.dayNumberActive]}>
-                {date}
-              </Text>
-              <View style={[s.dayDot, day === name && s.dayDotActive]} />
-            </Pressable>
-          ))}
-        </ScrollView>
+              {/* Day Pills */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.daysRow}
+              >
+                {weekDays.map(([name, date]) => (
+                  <Pressable
+                    key={name}
+                    onPress={() => {
+                      setDay(name);
+                      setEmpty(name === 'Sun');
+                    }}
+                    style={[s.day, day === name && s.daySelected]}
+                  >
+                    <Text style={[s.dayName, day === name && s.dayNameActive]}>
+                      {name}
+                    </Text>
+                    <Text style={[s.dayNumber, day === name && s.dayNumberActive]}>
+                      {date}
+                    </Text>
+                    <View style={[s.dayDot, day === name && s.dayDotActive]} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
+          );
+        })()}
 
         {empty ? (
           <EmptyDay
@@ -286,14 +320,23 @@ export default function Plan() {
             )}
 
             {/* Task list */}
-            <Text style={s.tasksHeading}>Today's Schedule</Text>
-            {tasks.map((task) => (
-              <TaskCard
-                key={task.title}
-                task={task}
-                onPress={() => setDetails(task)}
-              />
-            ))}
+            <Text style={s.tasksHeading}>{day}&apos;s Schedule</Text>
+            {(() => {
+              const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+              const dayIdx = Math.max(0, dayNames.indexOf(day));
+              const shift = (dayIdx + Math.abs(weekOffset)) % Math.max(1, tasks.length);
+              const rotated = [
+                ...tasks.slice(shift),
+                ...tasks.slice(0, shift),
+              ].slice(0, dayIdx % 2 === 0 ? tasks.length : Math.max(2, tasks.length - 1));
+              return rotated.map((task) => (
+                <TaskCard
+                  key={`${weekOffset}-${day}-${task.title}`}
+                  task={task}
+                  onPress={() => setDetails(task)}
+                />
+              ));
+            })()}
           </>
         )}
       </ScrollView>
@@ -445,7 +488,7 @@ function TaskDetails({
         <View style={{ gap: 10, marginTop: 24 }}>
           <Pressable
             style={s.primaryAction}
-            onPress={() => router.push('/(tabs)/tutor')}
+            onPress={() => router.push('/(tabs)/whiteboard')}
           >
             <Bot size={18} color="#FFFFFF" />
             <Text style={s.primaryActionText}>Start with AI Tutor</Text>
@@ -453,7 +496,12 @@ function TaskDetails({
 
           <Pressable
             style={s.quizAction}
-            onPress={() => router.push('/quiz')}
+            onPress={() =>
+              router.push({
+                pathname: '/quiz',
+                params: { subject: task.subject, topic: task.title },
+              })
+            }
           >
             <Target size={18} color={theme.colors.blue} />
             <Text style={s.quizActionText}>Launch Practice Quiz</Text>

@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BookOpen, Bot, Check, ChevronLeft, Clock3, MessageCircle, PanelLeft, Paperclip, Plus, RefreshCw, Send, Sparkles, Trash2, UserPlus, Users, WandSparkles, X } from 'lucide-react-native';
 import { ActivityIndicator, Alert, Animated, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '@/lib/theme';
-import { materialsApi, tutorApi, whiteboardApi, type MaterialItem, type WhiteboardDocument, type WhiteboardGroup, type WhiteboardMessage } from '@/lib/api';
+import { materialsApi, studyApi, tutorApi, whiteboardApi, type MaterialItem, type WhiteboardDocument, type WhiteboardGroup, type WhiteboardMessage } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 
 type StudyGroup = { id: string; name: string; subject: string };
 type ProposedEdit = Awaited<ReturnType<typeof whiteboardApi.proposeEdit>>;
 
 export default function WhiteboardScreen() {
+  const params = useLocalSearchParams<{
+    studyGroupId?: string;
+    studyGroupName?: string;
+    studyGroupSubject?: string;
+  }>();
   const { isAuthenticated, session, user } = useAuth();
   const isDemo = session?.access_token === 'demo-guest-token';
   const [groups, setGroups] = useState<WhiteboardGroup[]>([]);
@@ -50,6 +55,21 @@ export default function WhiteboardScreen() {
   const [newMemberId, setNewMemberId] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeStudyGroup, setActiveStudyGroup] = useState<StudyGroup | null>(null);
+
+  useEffect(() => {
+    if (!params.studyGroupId) return;
+    const incoming: StudyGroup = {
+      id: params.studyGroupId,
+      name: params.studyGroupName || 'Study Group',
+      subject: params.studyGroupSubject || 'General',
+    };
+    setStudyGroups((prev) =>
+      prev.some((g) => g.id === incoming.id) ? prev : [incoming, ...prev]
+    );
+    setActive(null);
+    setActiveStudyGroup(incoming);
+    setStudyGroupTab('chat');
+  }, [params.studyGroupId, params.studyGroupName, params.studyGroupSubject]);
   const [studyGroupTab, setStudyGroupTab] = useState<'chat' | 'materials' | 'quiz'>('chat');
   const [studyGroupMessages, setStudyGroupMessages] = useState<Array<{ id: string; sender: string; isMe: boolean; body: string }>>([
     { id: 'sg-m1', sender: 'Arjun Nair', isMe: false, body: 'Anyone free on Wednesday for chapter 3?' },
@@ -57,6 +77,13 @@ export default function WhiteboardScreen() {
     { id: 'sg-m3', sender: 'Mei Ling', isMe: false, body: "Let's do the weekly quiz after." },
   ]);
   const [studyGroupDraft, setStudyGroupDraft] = useState('');
+  const [weeklyQuizData, setWeeklyQuizData] = useState<{
+    questions: Array<{ id: string; question: string; options: string[]; correctAnswer?: string }>;
+    sourceTitle?: string;
+  } | null>(null);
+  const [weeklyQuizLoading, setWeeklyQuizLoading] = useState(false);
+  const [weeklyQuizAnswers, setWeeklyQuizAnswers] = useState<Record<string, string>>({});
+  const [weeklyQuizScore, setWeeklyQuizScore] = useState<{ score: number; total: number } | null>(null);
   const [wbAiMode, setWbAiMode] = useState<'ask' | 'edit'>('ask');
   const [wbAiMessages, setWbAiMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; text: string; sources?: string[] }>>([]);
   const [wbAiDraft, setWbAiDraft] = useState('');
@@ -643,13 +670,125 @@ export default function WhiteboardScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Weekly Group Quiz</Text>
             <Text style={styles.muted}>
-              Test your group on {activeStudyGroup.subject} with 5 grounded questions.
+              AI-generated quiz grounded in {activeStudyGroup.name}&apos;s shared materials ({activeStudyGroup.subject}).
             </Text>
-            <Pressable style={styles.primaryButton} onPress={() => router.push('/quiz')}>
-              <Sparkles size={16} color="#FFFFFF" />
-              <Text style={styles.primaryText}>Start Weekly Quiz</Text>
+            <Pressable
+              style={styles.primaryButton}
+              disabled={weeklyQuizLoading}
+              onPress={async () => {
+                setWeeklyQuizLoading(true);
+                setWeeklyQuizAnswers({});
+                setWeeklyQuizScore(null);
+                if (isDemo) {
+                  const matTitle = materials[0]?.title || `${activeStudyGroup.subject} Notes`;
+                  setWeeklyQuizData({
+                    sourceTitle: matTitle,
+                    questions: [
+                      {
+                        id: 'wq-1',
+                        question: `Based on ${matTitle}, what is the standard form of a quadratic equation?`,
+                        options: ['ax² + bx + c = 0', 'ax + b = 0', 'a² + b² = c²', 'y = mx + c'],
+                        correctAnswer: 'ax² + bx + c = 0',
+                      },
+                      {
+                        id: 'wq-2',
+                        question: `In ${matTitle}, what does the discriminant (b² - 4ac) < 0 indicate?`,
+                        options: ['Two real roots', 'One repeated root', 'No real roots', 'Infinite roots'],
+                        correctAnswer: 'No real roots',
+                      },
+                      {
+                        id: 'wq-3',
+                        question: 'Which method finds two numbers that multiply to c and add to b in x² + bx + c = 0?',
+                        options: ['Factorisation', 'Integration', 'Differentiation', 'Long division'],
+                        correctAnswer: 'Factorisation',
+                      },
+                    ],
+                  });
+                  setWeeklyQuizLoading(false);
+                  return;
+                }
+                try {
+                  const res: any = await studyApi.weeklyQuiz(activeStudyGroup.id, 5);
+                  const questions = res?.questions ?? res?.quiz?.questions ?? [];
+                  if (questions.length === 0) {
+                    Alert.alert('No materials yet', 'Share or upload study materials in this group first so the AI can generate a grounded weekly quiz.');
+                  } else {
+                    setWeeklyQuizData({
+                      questions,
+                      sourceTitle: materials[0]?.title || activeStudyGroup.subject,
+                    });
+                  }
+                } catch (e: any) {
+                  Alert.alert('Weekly quiz error', e?.message ?? 'Could not generate weekly quiz from group materials.');
+                } finally {
+                  setWeeklyQuizLoading(false);
+                }
+              }}
+            >
+              {weeklyQuizLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Sparkles size={16} color="#FFFFFF" />
+              )}
+              <Text style={styles.primaryText}>
+                {weeklyQuizData ? 'Regenerate Weekly Quiz' : 'Generate Weekly Quiz'}
+              </Text>
             </Pressable>
           </View>
+
+          {weeklyQuizData && (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>
+                Grounded in: {weeklyQuizData.sourceTitle || activeStudyGroup.subject}
+              </Text>
+              {weeklyQuizData.questions.map((q, idx) => (
+                <View key={q.id || idx} style={{ marginTop: 12, gap: 6 }}>
+                  <Text style={styles.historyTitle}>{idx + 1}. {q.question}</Text>
+                  {(q.options ?? []).map((opt) => {
+                    const selected = weeklyQuizAnswers[q.id] === opt;
+                    return (
+                      <Pressable
+                        key={opt}
+                        onPress={() => setWeeklyQuizAnswers((prev) => ({ ...prev, [q.id]: opt }))}
+                        style={[
+                          styles.historyItem,
+                          selected && { borderColor: theme.colors.blue, backgroundColor: theme.colors.blueLight },
+                        ]}
+                      >
+                        <Text style={[styles.llmAiText, selected && { color: theme.colors.blue, fontWeight: '700' }]}>
+                          {opt}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+              <Pressable
+                style={[styles.primaryButton, { marginTop: 16 }]}
+                onPress={() => {
+                  const qs = weeklyQuizData.questions;
+                  let correct = 0;
+                  qs.forEach((q) => {
+                    if (q.correctAnswer && weeklyQuizAnswers[q.id] === q.correctAnswer) {
+                      correct += 1;
+                    }
+                  });
+                  setWeeklyQuizScore({ score: correct, total: qs.length });
+                }}
+              >
+                <Check size={16} color="#FFFFFF" />
+                <Text style={styles.primaryText}>Submit Weekly Quiz</Text>
+              </Pressable>
+              {weeklyQuizScore && (
+                <View style={[styles.sgWelcomeBanner, { marginTop: 12 }]}>
+                  <Sparkles size={15} color={theme.colors.blue} />
+                  <Text style={styles.sgWelcomeText}>
+                    Score: {weeklyQuizScore.score} / {weeklyQuizScore.total} ({Math.round((weeklyQuizScore.score / Math.max(1, weeklyQuizScore.total)) * 100)}%)
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
       )}
       {renderDrawer()}

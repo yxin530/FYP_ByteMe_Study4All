@@ -211,10 +211,16 @@ export default function StudyFeaturesScreen() {
     setLoading(true);
     try {
       if (isDemo) {
-        setMatches([
-          { user_id: 'peer-1', display_name: 'Farah Aziz', learning_subjects: ['Mathematics'], availability: ['Evenings'] },
-          { user_id: 'peer-2', display_name: 'Daniel Lim', learning_subjects: ['Mathematics', 'Programming'], availability: ['Weekends'] },
-        ]);
+        const demoMatches = [
+          { user_id: 'peer-1', display_name: 'Farah Aziz', learning_subjects: [matchSubject || 'Mathematics'], availability: ['Evenings'] },
+          { user_id: 'peer-2', display_name: 'Daniel Lim', learning_subjects: [matchSubject || 'Mathematics', 'Programming'], availability: ['Weekends'] },
+        ];
+        setMatches(demoMatches);
+        setActiveGroup({
+          id: `demo-group-${Date.now()}`,
+          name: `${matchSubject || 'Mathematics'} Study Group`,
+          subject: matchSubject || 'Mathematics',
+        });
         return;
       }
       await studyApi.saveProfile({
@@ -225,7 +231,19 @@ export default function StudyFeaturesScreen() {
         discoverable,
       });
       const res: any = await studyApi.findMatch(matchSubject.trim() || 'Mathematics');
-      setMatches(res?.matches ?? []);
+      const found = res?.matches ?? [];
+      setMatches(found);
+      if (found.length > 0) {
+        const memberIds = found.map((m: any) => m.user_id).filter(Boolean);
+        const grpRes: any = await studyApi.createGroup({
+          name: `${matchSubject.trim() || 'Study'} Match Group`,
+          subject: matchSubject.trim() || 'Mathematics',
+          memberIds,
+        });
+        if (grpRes?.group) {
+          setActiveGroup(grpRes.group);
+        }
+      }
     } catch (e: any) {
       Alert.alert('Match error', e?.message ?? 'Could not find study matches.');
     } finally {
@@ -443,57 +461,30 @@ export default function StudyFeaturesScreen() {
                   </Text>
                 </View>
               ))}
-            </View>
 
-            <View style={s.card}>
-              <Text style={s.cardTitle}>Study Group Chat</Text>
-              {!activeGroup ? (
-                <>
-                  <Text style={s.label}>New Group Name</Text>
-                  <TextInput style={s.input} value={groupName} onChangeText={setGroupName} />
-                  <Pressable style={s.primaryBtn} onPress={handleCreateGroup} disabled={loading}>
-                    <MessageSquare size={16} color="#FFFFFF" />
-                    <Text style={s.primaryBtnText}>Create Study Group</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Text style={s.groupBadge}>
-                    {activeGroup.name} · {activeGroup.subject}
+              {matches.length > 0 && activeGroup && (
+                <View style={[s.resultBox, { marginTop: 12 }]}>
+                  <Text style={s.resultTitle}>Group Chat Created Automatically</Text>
+                  <Text style={s.matSub}>
+                    {activeGroup.name} ({activeGroup.subject}) is ready in your Chat tab.
                   </Text>
-                  <View style={s.chatList}>
-                    {messages.map((msg) => (
-                      <View key={msg.id} style={s.chatBubble}>
-                        <Text style={s.chatText}>{msg.body}</Text>
-                      </View>
-                    ))}
-                  </View>
-                  <View style={s.chatInputRow}>
-                    <Pressable
-                      onPress={() =>
-                        Alert.alert('Attach & Upload', 'Choose what you want to upload:', [
-                          { text: 'Document / PDF', onPress: () => router.push('/materials') },
-                          { text: 'Image / Video', onPress: () => router.push('/materials') },
-                          { text: 'Cancel', style: 'cancel' },
-                        ])
-                      }
-                      style={{ padding: 6 }}
-                      accessibilityLabel="Attach file, image, video, or document"
-                    >
-                      <Paperclip size={18} color={theme.colors.secondary} />
-                    </Pressable>
-                    <TextInput
-                      style={[s.input, { flex: 1, marginBottom: 0 }]}
-                      value={chatDraft}
-                      onChangeText={setChatDraft}
-                      placeholder="Message your study group..."
-                      placeholderTextColor={theme.colors.muted}
-                    />
-                    <Pressable style={s.sendBtn} onPress={handleSendMessage}>
-                      <Send size={16} color="#FFFFFF" />
-                    </Pressable>
-                  </View>
-                </>
+                  <Pressable
+                    style={[s.primaryBtn, { marginTop: 10 }]}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(tabs)/whiteboard',
+                        params: {
+                          studyGroupId: activeGroup.id,
+                          studyGroupName: activeGroup.name,
+                          studyGroupSubject: activeGroup.subject,
+                        },
+                      })
+                    }
+                  >
+                    <MessageSquare size={16} color="#FFFFFF" />
+                    <Text style={s.primaryBtnText}>Open Group Chat</Text>
+                  </Pressable>
+                </View>
               )}
             </View>
           </>

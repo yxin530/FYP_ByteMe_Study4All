@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
   BarChart3,
   Bot,
@@ -38,10 +38,11 @@ type Screen =
   | 'review';
 
 export default function Quiz() {
-  const [screen, setScreen] = useState<Screen>('subjects');
+  const params = useLocalSearchParams<{ subject?: string; topic?: string }>();
+  const [screen, setScreen] = useState<Screen>(params.subject || params.topic ? 'topics' : 'subjects');
   const [answer, setAnswer] = useState('x = 4 and x = −1');
-  const [selectedSubject, setSelectedSubject] = useState('Mathematics');
-  const [topic, setTopic] = useState('Quadratic equations');
+  const [selectedSubject, setSelectedSubject] = useState(params.subject || 'Mathematics');
+  const [topic, setTopic] = useState(params.topic || 'Quadratic equations');
   const [questions, setQuestions] = useState('10 questions');
   const [difficulty, setDifficulty] = useState('Mixed');
   const [quiz, setQuiz] = useState<QuizGenerationResponse | null>(null);

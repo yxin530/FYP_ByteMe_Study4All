@@ -188,7 +188,7 @@ function Overview({
       {/* Quiz Score History Chart */}
       <View style={s.chartCard}>
         <View style={s.cardHeader}>
-          <View>
+          <View style={{ flex: 1, marginRight: 8 }}>
             <Text style={s.cardTitle}>Quiz Score Trajectory</Text>
             <Text style={s.cardSub}>
               {hasChartData
@@ -201,6 +201,7 @@ function Overview({
           <Text
             style={[
               s.chartScoreAvg,
+              { flexShrink: 0 },
               !hasChartData && { color: theme.colors.secondary, backgroundColor: theme.colors.surface },
             ]}
           >
