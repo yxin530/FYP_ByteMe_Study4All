@@ -28,6 +28,18 @@ export default function RootLayout() {
             animation: 'slide_from_right',
           }}
         />
+        <Stack.Screen
+          name="study-features"
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="notifications"
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

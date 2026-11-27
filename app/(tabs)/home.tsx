@@ -153,6 +153,21 @@ export default function Home() {
               <ChevronRight size={16} color={theme.colors.secondary} />
             </View>
           </Pressable>
+
+          {/* Study Hub: Rescue, Quests & Groups */}
+          <Pressable
+            style={[styles.actionCard, { borderLeftColor: theme.colors.violet, borderLeftWidth: 4 }]}
+            onPress={() => router.push('/study-features')}
+          >
+            <View style={[styles.actionIconWrap, { backgroundColor: theme.colors.violetSoft }]}>
+              <Sparkles size={22} color={theme.colors.violet} />
+            </View>
+            <Text style={styles.actionTitle}>Study Hub</Text>
+            <Text style={styles.actionDesc}>Exam rescue plans, learning quests & peer study groups</Text>
+            <View style={styles.cardArrow}>
+              <ChevronRight size={16} color={theme.colors.secondary} />
+            </View>
+          </Pressable>
         </View>
 
         {/* AI Recommendation Banner */}

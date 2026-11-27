@@ -10,7 +10,8 @@ type StudyGroup = { id: string; name: string; subject: string };
 type ProposedEdit = Awaited<ReturnType<typeof whiteboardApi.proposeEdit>>;
 
 export default function WhiteboardScreen() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, session, user } = useAuth();
+  const isDemo = session?.access_token === 'demo-guest-token';
   const [groups, setGroups] = useState<WhiteboardGroup[]>([]);
   const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
@@ -43,6 +44,27 @@ export default function WhiteboardScreen() {
 
   const loadLists = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return; }
+    if (isDemo) {
+      setGroups([
+        { id: 'demo-wb-1', name: 'Chapter 3 Study Notes', created_by: user?.id || 'demo-student-user', created_at: new Date().toISOString() },
+      ]);
+      setStudyGroups([{ id: 'demo-sg-1', name: 'Math Exam Prep', subject: 'Mathematics' }]);
+      setMaterials([
+        {
+          id: 'demo-mat-1',
+          user_id: user?.id || 'demo-student-user',
+          title: 'Chapter 3: Quadratic Equations',
+          material_type: 'pdf',
+          processing_status: 'ready',
+          version_hash: 'demo-hash-1234',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]);
+      setError('');
+      setLoading(false);
+      return;
+    }
     try {
       const [groupResult, studyResult, materialResult] = await Promise.all([whiteboardApi.groups(), whiteboardApi.studyGroups(), materialsApi.list()]);
       setGroups(groupResult.groups);
@@ -51,7 +73,7 @@ export default function WhiteboardScreen() {
       setError('');
     } catch (e: any) { setError(e?.message ?? 'Could not load whiteboard groups.'); }
     finally { setLoading(false); }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isDemo, user?.id]);
 
   useEffect(() => { void loadLists(); }, [loadLists]);
 
@@ -59,6 +81,30 @@ export default function WhiteboardScreen() {
 
   const refreshActive = useCallback(async (initial = false) => {
     if (!active) return;
+    if (isDemo) {
+      if (initial) {
+        const demoDoc: WhiteboardDocument = {
+          id: 'demo-doc-1',
+          group_id: active.id,
+          title: 'Quadratic Equations Summary',
+          content: '# Quadratic Equations\n\n- Standard form: `ax^2 + bx + c = 0`\n- Discriminant: `b^2 - 4ac`\n- Two real roots when discriminant > 0',
+          revision: 1,
+          updated_by: user?.id || 'demo-student-user',
+          updated_at: new Date().toISOString(),
+        };
+        setDocument(demoDoc);
+        setTitle(demoDoc.title);
+        setContent(demoDoc.content);
+        setExpectedRevision(1);
+        setDirty(false);
+        setMembers([{ user_id: user?.id || 'demo-student-user', role: 'owner' }, { user_id: 'peer-1', role: 'member' }]);
+        setMessages([
+          { id: 'demo-m1', group_id: active.id, user_id: 'peer-1', body: 'I added the discriminant formula to the shared notes!', created_at: new Date().toISOString() },
+        ]);
+      }
+      setError('');
+      return;
+    }
     try {
       const data = await whiteboardApi.get(active.id);
       setMessages(data.messages);
