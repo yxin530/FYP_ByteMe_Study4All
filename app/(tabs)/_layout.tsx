@@ -27,6 +27,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tutor"
         options={{
+          href: null,
           title: 'AI Tutor',
           tabBarIcon: ({ color, size, focused }) => (
             <Bot size={size ?? 22} color={color} strokeWidth={focused ? 2.2 : 1.8} />
@@ -45,7 +46,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="whiteboard"
         options={{
-          title: 'Whiteboard',
+          title: 'Chat',
           tabBarIcon: ({ color, size, focused }) => (
             <Users size={size ?? 22} color={color} strokeWidth={focused ? 2.2 : 1.8} />
           ),

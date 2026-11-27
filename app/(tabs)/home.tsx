@@ -25,11 +25,17 @@ import { profileApi } from '@/lib/api';
 
 export default function Home() {
   const [streakDays, setStreakDays] = useState(0);
+  const [overallMastery, setOverallMastery] = useState<number | null>(null);
+  const [totalQuizzes, setTotalQuizzes] = useState<number | null>(null);
 
   useEffect(() => {
     profileApi
       .get()
-      .then((p) => setStreakDays(p.streakDays ?? 0))
+      .then((p) => {
+        setStreakDays(p.streakDays ?? 0);
+        setOverallMastery(p.overallMastery ?? null);
+        setTotalQuizzes(p.totalQuizzes ?? p.evidenceReferences?.length ?? null);
+      })
       .catch(() => {});
   }, []);
 
@@ -69,7 +75,11 @@ export default function Home() {
           <View style={styles.studyCardTop}>
             <View>
               <Text style={styles.cardOverline}>TODAY'S STUDY GOAL</Text>
-              <Text style={styles.studyCardTitle}>3 of 5 tasks completed</Text>
+              <Text style={styles.studyCardTitle}>
+                {overallMastery !== null
+                  ? `${overallMastery}% overall mastery`
+                  : '3 of 5 tasks completed'}
+              </Text>
             </View>
             <View style={styles.studyIconWrap}>
               <CalendarCheck size={20} color={theme.colors.blue} />
@@ -77,12 +87,14 @@ export default function Home() {
           </View>
 
           <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '60%' }]} />
+            <View style={[styles.progressBarFill, { width: `${overallMastery ?? 60}%` as any }]} />
           </View>
 
           <View style={styles.studyCardFooter}>
             <Text style={styles.studyCardSub}>
-              1h 15m studied · ~45 min remaining
+              {totalQuizzes !== null
+                ? `${totalQuizzes} quiz${totalQuizzes === 1 ? '' : 'zes'} completed · ${streakDays} day streak`
+                : '1h 15m studied · ~45 min remaining'}
             </Text>
             <View style={styles.viewPlanLink}>
               <Text style={styles.viewPlanText}>View Plan</Text>
@@ -97,7 +109,7 @@ export default function Home() {
           {/* AI Tutor */}
           <Pressable
             style={[styles.actionCard, { borderLeftColor: theme.colors.violet, borderLeftWidth: 4 }]}
-            onPress={() => router.push('/(tabs)/tutor')}
+            onPress={() => router.push('/(tabs)/whiteboard')}
           >
             <View style={[styles.actionIconWrap, { backgroundColor: theme.colors.violetSoft }]}>
               <Bot size={22} color={theme.colors.violet} />
@@ -197,7 +209,7 @@ export default function Home() {
 
             <Pressable
               style={styles.recommendButtonSecondary}
-              onPress={() => router.push('/(tabs)/tutor')}
+              onPress={() => router.push('/(tabs)/whiteboard')}
             >
               <Bot size={15} color={theme.colors.violet} />
               <Text style={styles.recommendButtonSecondaryText}>Ask Tutor</Text>

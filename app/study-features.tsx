@@ -17,13 +17,14 @@ import {
   Compass,
   Flame,
   MessageSquare,
+  Paperclip,
   Send,
   Sparkles,
   Users,
 } from 'lucide-react-native';
 import { theme } from '@/lib/theme';
 import { useAuth } from '@/lib/authContext';
-import { materialsApi, studyApi, type MaterialItem } from '@/lib/api';
+import { materialsApi, profileApi, studyApi, type LearningProfile, type MaterialItem } from '@/lib/api';
 
 type Section = 'rescue' | 'quest' | 'groups';
 
@@ -54,6 +55,7 @@ export default function StudyFeaturesScreen() {
 
   const [section, setSection] = useState<Section>('rescue');
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
+  const [profile, setProfile] = useState<LearningProfile | null>(null);
   const [selectedMaterialIds, setSelectedMaterialIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -104,6 +106,7 @@ export default function StudyFeaturesScreen() {
         if (ready.length > 0) setSelectedMaterialIds([ready[0].id]);
       })
       .catch(() => setMaterials([]));
+    profileApi.get().then(setProfile).catch(() => setProfile(null));
   }, [isDemo]);
 
   const toggleMaterial = (id: string) => {
@@ -120,15 +123,37 @@ export default function StudyFeaturesScreen() {
     setLoading(true);
     try {
       if (isDemo) {
+        const selectedNames = materials
+          .filter((m) => selectedMaterialIds.includes(m.id))
+          .map((m) => m.title)
+          .join(', ');
         setRescuePlan({
           status: 'generated',
           examDate,
           availableMinutes: Number(availableMinutes) || 90,
-          assumptions: ['Demo mode: grounded on Chapter 3: Quadratic Equations'],
+          assumptions: [
+            `Grounded in: ${selectedNames}`,
+            'Performance focus: Quadratic factorisation & discriminant (recent quiz score: 54%)',
+          ],
           tasks: [
-            { title: 'Review discriminant & roots formula', durationMinutes: 30, priority: 'high' },
-            { title: 'Solve 5 factorisation practice problems', durationMinutes: 35, priority: 'high' },
-            { title: 'Quick self-check quiz', durationMinutes: 25, priority: 'medium' },
+            {
+              title: 'Block 1: Discriminant & Roots Concept Repair',
+              detail: 'Re-read Section 3.2 of your notes and write 3 summary rules for b^2 - 4ac.',
+              durationMinutes: 30,
+              priority: 'high',
+            },
+            {
+              title: 'Block 2: Targeted Weak-Topic Drills',
+              detail: 'Solve 5 factorisation & completing-the-square problems without notes, then check step-by-step.',
+              durationMinutes: 35,
+              priority: 'high',
+            },
+            {
+              title: 'Block 3: Timed Mini-Quiz Checkpoint',
+              detail: 'Complete a 5-question adaptive quiz targeting your weak topics to verify >= 75% mastery.',
+              durationMinutes: 25,
+              priority: 'medium',
+            },
           ],
         });
         return;
@@ -154,13 +179,18 @@ export default function StudyFeaturesScreen() {
     setLoading(true);
     try {
       if (isDemo) {
+        const selectedNames = materials
+          .filter((m) => selectedMaterialIds.includes(m.id))
+          .map((m) => m.title)
+          .join(', ');
         setQuestResult({
           title: 'Quadratic Mastery Quest',
           xpReward: 150,
+          performanceNote: `Tailored to your ${profile?.streakDays ? `${profile.streakDays}-day streak` : 'recent quiz performance'} & ${selectedNames}`,
           milestones: [
-            'Summarize vertex form in 3 bullet points',
-            'Complete 3 grounded practice questions',
-            'Explain the discriminant rule to the AI Tutor',
+            '1. Concept Recall: Summarize vertex form & discriminant rules from Chapter 3 in 3 bullet points.',
+            '2. Guided Practice: Solve 3 factorisation questions and verify each step with Study4All AI.',
+            '3. Mastery Boss Check: Score at least 80% on a 5-question grounded quiz.',
           ],
         });
         return;
@@ -337,10 +367,16 @@ export default function StudyFeaturesScreen() {
             {rescuePlan && (
               <View style={s.resultBox}>
                 <Text style={s.resultTitle}>Your Rescue Plan ({rescuePlan.availableMinutes ?? availableMinutes} mins)</Text>
+                {(rescuePlan.assumptions ?? []).map((a: string, idx: number) => (
+                  <Text key={`a-${idx}`} style={s.matSub}>{a}</Text>
+                ))}
                 {(rescuePlan.tasks ?? []).map((t: any, idx: number) => (
-                  <Text key={idx} style={s.resultItem}>
-                    • {t.title} ({t.durationMinutes} min)
-                  </Text>
+                  <View key={idx} style={{ marginTop: 4 }}>
+                    <Text style={[s.resultItem, { fontWeight: '700' }]}>
+                      • {t.title} ({t.durationMinutes} min)
+                    </Text>
+                    {t.detail ? <Text style={s.matSub}>{t.detail}</Text> : null}
+                  </View>
                 ))}
               </View>
             )}
@@ -369,9 +405,12 @@ export default function StudyFeaturesScreen() {
                 {questResult.xpReward ? (
                   <Text style={s.xpBadge}>+{questResult.xpReward} XP</Text>
                 ) : null}
+                {questResult.performanceNote ? (
+                  <Text style={s.matSub}>{questResult.performanceNote}</Text>
+                ) : null}
                 {(questResult.milestones ?? []).map((m: string, idx: number) => (
                   <Text key={idx} style={s.resultItem}>
-                    {idx + 1}. {m}
+                    {m}
                   </Text>
                 ))}
               </View>
@@ -430,6 +469,19 @@ export default function StudyFeaturesScreen() {
                     ))}
                   </View>
                   <View style={s.chatInputRow}>
+                    <Pressable
+                      onPress={() =>
+                        Alert.alert('Attach & Upload', 'Choose what you want to upload:', [
+                          { text: 'Document / PDF', onPress: () => router.push('/materials') },
+                          { text: 'Image / Video', onPress: () => router.push('/materials') },
+                          { text: 'Cancel', style: 'cancel' },
+                        ])
+                      }
+                      style={{ padding: 6 }}
+                      accessibilityLabel="Attach file, image, video, or document"
+                    >
+                      <Paperclip size={18} color={theme.colors.secondary} />
+                    </Pressable>
                     <TextInput
                       style={[s.input, { flex: 1, marginBottom: 0 }]}
                       value={chatDraft}

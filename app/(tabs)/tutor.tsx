@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,6 +20,7 @@ import {
   FileText,
   Headphones,
   Library,
+  Paperclip,
   Plus,
   RefreshCw,
   Send,
@@ -400,6 +402,19 @@ function Composer({
 }) {
   return (
     <View style={s.composer}>
+      <Pressable
+        accessibilityLabel="Upload file, image, video, or document"
+        onPress={() =>
+          Alert.alert('Attach & Upload', 'Choose what you want to upload:', [
+            { text: 'Document / PDF', onPress: () => router.push('/materials') },
+            { text: 'Image / Video', onPress: () => router.push('/materials') },
+            { text: 'Cancel', style: 'cancel' },
+          ])
+        }
+        style={{ padding: 6 }}
+      >
+        <Paperclip size={18} color={theme.colors.secondary} />
+      </Pressable>
       <TextInput
         value={draft}
         onChangeText={setDraft}

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { theme } from '@/lib/theme';
+import { profileApi, type LearningProfile } from '@/lib/api';
 
 type Task = {
   title: string;
@@ -66,6 +68,58 @@ export default function Plan() {
   const [details, setDetails] = useState<Task | null>(null);
   const [rebalance, setRebalance] = useState(false);
   const [empty, setEmpty] = useState(false);
+  const [profile, setProfile] = useState<LearningProfile | null>(null);
+  const [planLoading, setPlanLoading] = useState(true);
+
+  // On mount: load user profile and derive a personalised task list
+  useEffect(() => {
+    profileApi
+      .get()
+      .then((p) => {
+        setProfile(p);
+        const derived: Task[] = [];
+
+        // Weak topics → revision tasks
+        for (const w of (p.weakTopics ?? []).slice(0, 3)) {
+          derived.push({
+            title: `Revise ${w.topic}`,
+            subject: w.subject,
+            duration: '30 min',
+            state: 'todo',
+            isQuiz: false,
+          });
+        }
+
+        // Recommendations → quiz or tutor tasks
+        for (const r of (p.recommendations ?? []).slice(0, 2)) {
+          derived.push({
+            title: r.action,
+            subject: r.topic,
+            duration: '20 min',
+            state: 'todo',
+            isQuiz: r.action.toLowerCase().includes('quiz'),
+          });
+        }
+
+        // Recent quiz subjects → audio revision
+        const recentSubjects = [...new Set((p.recentQuizzes ?? []).map((q) => q.subject))].slice(0, 1);
+        for (const subj of recentSubjects) {
+          derived.push({
+            title: `Audio revision: ${subj}`,
+            subject: subj,
+            duration: '15 min',
+            state: 'todo',
+            isQuiz: false,
+          });
+        }
+
+        if (derived.length > 0) {
+          setTasks(derived);
+        }
+      })
+      .catch(() => {/* keep initial fallback tasks */})
+      .finally(() => setPlanLoading(false));
+  }, []);
 
   if (details) {
     return (
@@ -160,34 +214,76 @@ export default function Plan() {
         ) : (
           <>
             {/* Daily summary */}
-            <View style={s.summary}>
-              <View>
-                <Text style={s.summaryTitle}>Today · Monday</Text>
-                <Text style={s.summarySub}>
-                  3 of 5 done · 2h 20m planned · 45m left
-                </Text>
-              </View>
-              <View style={s.ring}>
-                <Text style={s.ringText}>60%</Text>
-              </View>
-            </View>
+            {(() => {
+              const doneCount = tasks.filter((t) => t.state === 'done').length;
+              const totalCount = tasks.length;
+              const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+              const totalMins = tasks.reduce((sum, t) => {
+                const m = parseInt(t.duration, 10);
+                return sum + (isNaN(m) ? 0 : m);
+              }, 0);
+              const doneMins = tasks
+                .filter((t) => t.state === 'done')
+                .reduce((sum, t) => {
+                  const m = parseInt(t.duration, 10);
+                  return sum + (isNaN(m) ? 0 : m);
+                }, 0);
+              const leftMins = totalMins - doneMins;
+              const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+              return (
+                <View style={s.summary}>
+                  <View>
+                    <Text style={s.summaryTitle}>Today · {today}</Text>
+                    {planLoading ? (
+                      <ActivityIndicator size="small" color={theme.colors.secondary} style={{ marginTop: 4 }} />
+                    ) : (
+                      <Text style={s.summarySub}>
+                        {doneCount} of {totalCount} done · {Math.floor(totalMins / 60) > 0 ? `${Math.floor(totalMins / 60)}h ` : ''}{totalMins % 60}m planned · {leftMins}m left
+                      </Text>
+                    )}
+                  </View>
+                  <View style={s.ring}>
+                    <Text style={s.ringText}>{pct}%</Text>
+                  </View>
+                </View>
+              );
+            })()}
 
             {/* AI Rebalance card */}
-            <Pressable
-              style={s.rebalanceCard}
-              onPress={() => setRebalance(true)}
-            >
-              <Sparkles size={20} color={theme.colors.violet} />
-              <View style={{ flex: 1 }}>
-                <Text style={s.rebalanceTitle}>
-                  You missed 2 tasks last weekend.
-                </Text>
-                <Text style={s.rebalanceSub}>
-                  Let the AI Study Planner rebalance your remaining week?
-                </Text>
-              </View>
-              <Text style={s.review}>Review</Text>
-            </Pressable>
+            {profile && (profile.weakTopics?.length ?? 0) > 0 && (
+              <Pressable
+                style={s.rebalanceCard}
+                onPress={() => setRebalance(true)}
+              >
+                <Sparkles size={20} color={theme.colors.violet} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rebalanceTitle}>
+                    {profile.weakTopics.length} weak topic{profile.weakTopics.length === 1 ? '' : 's'} detected.
+                  </Text>
+                  <Text style={s.rebalanceSub}>
+                    Let the AI Study Planner rebalance your remaining week?
+                  </Text>
+                </View>
+                <Text style={s.review}>Review</Text>
+              </Pressable>
+            )}
+            {!profile && (
+              <Pressable
+                style={s.rebalanceCard}
+                onPress={() => setRebalance(true)}
+              >
+                <Sparkles size={20} color={theme.colors.violet} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rebalanceTitle}>
+                    You missed 2 tasks last weekend.
+                  </Text>
+                  <Text style={s.rebalanceSub}>
+                    Let the AI Study Planner rebalance your remaining week?
+                  </Text>
+                </View>
+                <Text style={s.review}>Review</Text>
+              </Pressable>
+            )}
 
             {/* Task list */}
             <Text style={s.tasksHeading}>Today's Schedule</Text>

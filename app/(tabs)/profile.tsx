@@ -146,7 +146,7 @@ export default function Profile() {
             icon={<Bell size={18} color={theme.colors.amber} />}
             title="Notifications & study alarms"
             detail="8:00 pm daily"
-            onPress={() => setScreen('settings')}
+            onPress={() => router.push('/notifications')}
           />
         </View>
 
