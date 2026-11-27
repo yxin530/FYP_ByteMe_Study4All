@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BookOpen, Bot, Check, ChevronLeft, Clock3, MessageCircle, PanelLeft, Paperclip, Plus, RefreshCw, Send, Sparkles, Trash2, UserPlus, Users, WandSparkles, X } from 'lucide-react-native';
-import { ActivityIndicator, Alert, Animated, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '@/lib/theme';
@@ -907,26 +907,33 @@ export default function WhiteboardScreen() {
 
       </ScrollView>
 
-      {/* Draggable Floating Group Chat Bubble */}
-      <Animated.View
-        style={[
-          styles.floatingWrap,
-          { transform: [{ translateX: bubblePan.x }, { translateY: bubblePan.y }] },
-        ]}
-        {...panResponder.panHandlers}
+      <Modal
+        visible={showChat}
+        animationType="slide"
+        onRequestClose={() => setShowChat(false)}
       >
-        {showChat && (
-          <View style={styles.floatingChatCard}>
-            <View style={styles.floatingChatHeader}>
-              <View style={styles.inline}>
-                <MessageCircle size={16} color={theme.colors.blue} />
-                <Text style={styles.sectionTitle}>Group Chat</Text>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface }}>
+              <View style={[styles.inline, { flex: 1, marginRight: 12 }]}>
+                <MessageCircle size={18} color={theme.colors.blue} />
+                <Text style={[styles.title, { flexShrink: 1 }]} numberOfLines={1}>
+                  {active.name} · Group Chat
+                </Text>
               </View>
-              <Pressable onPress={() => setShowChat(false)} hitSlop={8}>
-                <X size={18} color={theme.colors.secondary} />
+              <Pressable
+                onPress={() => setShowChat(false)}
+                hitSlop={12}
+                style={[styles.iconButton, { flexShrink: 0 }]}
+                accessibilityLabel="Close group chat"
+              >
+                <X size={20} color={theme.colors.text} />
               </Pressable>
             </View>
-            <ScrollView style={styles.floatingChatList} nestedScrollEnabled>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 10 }}>
               {messages.length ? (
                 messages.map((message) => (
                   <View key={message.id} style={[styles.chatBubble, message.user_id === user?.id && styles.myBubble]}>
@@ -941,7 +948,7 @@ export default function WhiteboardScreen() {
                 <Text style={styles.muted}>No messages yet. Start the conversation.</Text>
               )}
             </ScrollView>
-            <View style={styles.chatInputRow}>
+            <View style={[styles.chatInputRow, { paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
               <Pressable
                 onPress={() =>
                   Alert.alert('Attach & Upload', 'Choose what you want to upload:', [
@@ -958,16 +965,26 @@ export default function WhiteboardScreen() {
               <TextInput
                 value={chatDraft}
                 onChangeText={setChatDraft}
-                style={[styles.input, { flex: 1, marginBottom: 0, minHeight: 38, paddingVertical: 8 }]}
+                style={[styles.input, { flex: 1, marginBottom: 0, minHeight: 40, paddingVertical: 8 }]}
                 placeholder="Message group..."
                 placeholderTextColor={theme.colors.muted}
               />
-              <Pressable onPress={() => void sendChat()} style={[styles.sendButton, { width: 38, height: 38 }]}>
-                <Send size={15} color="#fff" />
+              <Pressable onPress={() => void sendChat()} style={[styles.sendButton, { width: 40, height: 40 }]}>
+                <Send size={16} color="#fff" />
               </Pressable>
             </View>
-          </View>
-        )}
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Draggable Floating Group Chat Bubble */}
+      <Animated.View
+        style={[
+          styles.floatingWrap,
+          { transform: [{ translateX: bubblePan.x }, { translateY: bubblePan.y }] },
+        ]}
+        {...panResponder.panHandlers}
+      >
 
         <Pressable
           style={styles.floatingBubble}
@@ -1259,7 +1276,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', padding: 24, gap: 8, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: theme.colors.border }, emptyTitle: { fontWeight: '700', color: theme.colors.text, fontSize: 14 }, groupCard: { backgroundColor: theme.colors.surface, borderRadius: 15, borderWidth: 1, borderColor: theme.colors.border, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 5 }, groupOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11 }, deleteButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }, groupIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.colors.blueLight, alignItems: 'center', justifyContent: 'center' }, groupName: { fontSize: 14, fontWeight: '700', color: theme.colors.text, marginBottom: 3 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 8 }, smallAction: { flexDirection: 'row', alignItems: 'center', gap: 5, padding: 7 }, actionText: { color: theme.colors.blue, fontWeight: '700', fontSize: 11 }, titleInput: { fontSize: 18, color: theme.colors.text, fontWeight: '700', padding: 0 }, toolbar: { flexDirection: 'row', alignItems: 'center', gap: 7 }, tool: { backgroundColor: theme.colors.bg, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10 }, toolText: { color: theme.colors.secondary, fontSize: 11, fontWeight: '700' }, editor: { minHeight: 230, backgroundColor: theme.colors.bg, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 12, padding: 12, color: theme.colors.text, fontSize: 15, lineHeight: 23 }, saveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, historyItem: { paddingVertical: 11, borderTopWidth: 1, borderTopColor: theme.colors.border, gap: 5 }, historyTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.text }, historyContent: { color: theme.colors.secondary, fontSize: 12, lineHeight: 18 },
   materialPicker: { gap: 8, marginVertical: 2 }, materialEmpty: { color: theme.colors.amber, fontSize: 12, lineHeight: 18, backgroundColor: theme.colors.amberSoft, padding: 10, borderRadius: 9 }, answerBox: { padding: 12, borderRadius: 11, borderWidth: 1, borderColor: theme.colors.violetBorder, backgroundColor: '#FAF8FF', gap: 8 }, answerText: { color: theme.colors.text, fontSize: 13, lineHeight: 20 }, sourceText: { color: theme.colors.violet, fontSize: 10, fontWeight: '600' }, proposalBox: { gap: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colors.border }, proposalEditor: { minHeight: 150, borderWidth: 1, borderColor: theme.colors.violetBorder, borderRadius: 10, padding: 10, color: theme.colors.text, backgroundColor: '#FAF8FF', fontSize: 13, lineHeight: 20 }, buttonRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  chatList: { gap: 8, maxHeight: 260 }, chatBubble: { backgroundColor: theme.colors.bg, borderRadius: 12, padding: 10, alignSelf: 'flex-start', maxWidth: '92%' }, myBubble: { backgroundColor: theme.colors.blueLight, alignSelf: 'flex-end' }, chatMeta: { color: theme.colors.muted, fontSize: 10, marginBottom: 4 }, chatText: { color: theme.colors.text, fontSize: 13, lineHeight: 18 }, chatInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, sendButton: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.blue },
+  chatList: { gap: 8, maxHeight: 260 }, chatBubble: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 14, padding: 12, alignSelf: 'flex-start', maxWidth: '88%' }, myBubble: { backgroundColor: theme.colors.blueLight, borderWidth: 1, borderColor: theme.colors.blueBorder, alignSelf: 'flex-end' }, chatMeta: { color: theme.colors.secondary, fontSize: 10, fontWeight: '600', marginBottom: 4 }, chatText: { color: theme.colors.text, fontSize: 14, lineHeight: 20 }, chatInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, sendButton: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.blue },
   conflictBox: { backgroundColor: theme.colors.amberSoft, borderWidth: 1, borderColor: theme.colors.amberBorder, borderRadius: 12, padding: 12, gap: 8 }, conflictTitle: { fontWeight: '700', color: theme.colors.amber, fontSize: 13 },
   floatingWrap: { position: 'absolute', right: 18, bottom: 24, alignItems: 'flex-end', zIndex: 50 },
   floatingBubble: { width: 54, height: 54, borderRadius: 27, backgroundColor: theme.colors.blue, alignItems: 'center', justifyContent: 'center', ...theme.shadows.elevated },
@@ -1281,7 +1298,7 @@ const styles = StyleSheet.create({
   promptChipText: { fontSize: 13, fontWeight: '600', color: theme.colors.text },
   llmBubble: { maxWidth: '88%', borderRadius: 16, padding: 13 },
   llmUserBubble: { alignSelf: 'flex-end', backgroundColor: theme.colors.blue },
-  llmAiBubble: { alignSelf: 'flex-start', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
+  llmAiBubble: { alignSelf: 'flex-start', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: '#CBD5E1' },
   llmAiBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
   llmAiBadgeText: { fontSize: 11, fontWeight: '700', color: theme.colors.blue },
   llmUserText: { color: '#FFFFFF', fontSize: 14, lineHeight: 20 },
@@ -1316,7 +1333,7 @@ const styles = StyleSheet.create({
   sgOtherRow: { alignSelf: 'flex-start', maxWidth: '82%' },
   sgMyRow: { alignSelf: 'flex-end', maxWidth: '82%' },
   sgSender: { fontSize: 12, fontWeight: '700', color: theme.colors.secondary, marginBottom: 4, marginLeft: 4 },
-  sgOtherBubble: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 11 },
+  sgOtherBubble: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 11 },
   sgMyBubble: { backgroundColor: theme.colors.blue, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 11 },
   sgWelcomeBanner: { backgroundColor: theme.colors.blueLight, borderWidth: 1, borderColor: theme.colors.blueBorder, borderRadius: 14, padding: 12, gap: 8, alignItems: 'flex-start' },
   sgWelcomeText: { fontSize: 12, color: theme.colors.text, lineHeight: 17 },
