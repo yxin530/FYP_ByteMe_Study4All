@@ -61,7 +61,6 @@ Learning responses are designed to use materials supplied or uploaded by the stu
 
 ## Documentation
 
-- [Report Chapters 1–2](docs/REPORT_CHAPTERS_1_2.md)
 - [System Architecture](docs/ARCHITECTURE.md)
 - [Requirements](docs/REQUIREMENTS.md)
 - [Development Guide](docs/DEVELOPMENT.md)
