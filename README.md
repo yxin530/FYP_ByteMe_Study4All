@@ -1,23 +1,25 @@
 # AI Study4All
 
-AI Study4All is a mobile learning application developed by the ByteMe group. It helps students study through personalized learning activities, AI-assisted explanations, adaptive quizzes, study planning, and progress tracking.
+**AI Study4All** is an AI-powered adaptive learning mobile application developed by the **ByteMe** group. It analyzes students' learning performance, identifies their strengths and weaknesses, and delivers personalized explanations, adaptive quizzes, study recommendations, and interactive learning activities based on their own study materials.
+
+The project is aligned with **Sustainable Development Goal 4 (SDG 4): Quality Education**, aiming to make learning more accessible, engaging, and personalized for students.
 
 ## Main features
 
-- User registration and authentication
-- Subject and topic management
-- Snap-to-Learn for uploading or capturing learning materials
-- AI Learning Assistant for material-grounded explanations
-- Adaptive AI Quiz with performance-based difficulty
-- “Why Did I Get This Wrong?” answer explanations
-- AI Learning Profile for strengths, weaknesses, and progress
-- AI Learning Quest for gamified learning activities
-- AI Study Rescue for examination preparation
-- AI Study Group Match
-- Personalized study recommendations
-- Audio learning with transcript review and text-to-speech
-- Collaborative whiteboards with group chat, shared notes, and grounded AI assistance
-- Progress dashboard, reminders, and notifications
+- **User Registration & Authentication**
+- **Subject & Topic Management**
+- **AI Learning Profile** to identify individual learning patterns, strengths, and weaknesses
+- **Snap/Upload-to-Learn** for extracting and learning from uploaded learning materials
+- **AI Learning Assistant** for material-grounded explanations of difficult topics
+- **Adaptive AI Quiz** that dynamically adjusts question difficulty according to performance
+- **“Why Did I Get This Wrong?”** feature to explain incorrect answers
+- **AI Study Group Match** to match students with suitable study partners or groups based on subjects, learning needs, weak topics, study preferences, and availability
+- **AI Learning Quest** for gamified learning activities
+- **AI Study Rescue** for creating short-term study plans before examinations
+- **Personalized Study Recommendations**
+- **Audio Learning** with transcript review and text-to-speech
+- **Live Sync Collaborative Whiteboard** with group chat, shared notes, and grounded AI assistance
+- **Learning Progress Dashboard**, quiz history and performance analysis, and study reminders & notifications
 
 ## Technology stack
 
