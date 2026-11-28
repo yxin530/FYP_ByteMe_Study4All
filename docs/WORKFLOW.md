@@ -100,3 +100,52 @@ flowchart TD
     Review -->|Yes| Save
     Review -->|No| Discard[Discard proposal]
 ```
+
+---
+
+## 5. Snap / Upload-to-Learn (Material Ingestion) Flow
+
+```mermaid
+flowchart LR
+    Student([Student]) -->|Snap photo or upload file| App[Mobile App]
+    App -->|Upload| Storage[(Supabase Storage)]
+    App -->|Register material| API[Backend API]
+    API --> Material[Material Agent\nExtract, structure & index]
+    Material -->|Store content, material_id & version| DB[(Supabase PostgreSQL)]
+    DB -->|Ready for grounded AI| Agents[Tutor, Quiz, Audio,\nStudy Rescue & Whiteboard AI]
+```
+
+---
+
+## 6. Adaptive Quiz & "Why Did I Get This Wrong?" Flow
+
+```mermaid
+flowchart TD
+    Student([Student]) -->|Start quiz on topic/material| Quiz[Quiz Agent]
+    Quiz -->|Fetch grounded material & difficulty| Context[(Student Profile +\nMaterial IDs)]
+    Quiz -->|Serve adaptive question| Student
+    Student -->|Submit answer| Check{Correct?}
+    Check -->|Yes| Increase[Increase difficulty /\nrecord mastery]
+    Check -->|No| Why["Why Did I Get This Wrong?"\nGrounded explanation from material]
+    Why --> Update[Update Learning Profile\nweaknesses & quiz history]
+    Increase --> Update
+```
+
+---
+
+## 7. AI Study Rescue & Study Group Match Flow
+
+```mermaid
+flowchart TD
+    subgraph Study Rescue
+        S1([Student]) -->|Set exam date & weak topics| Rescue[Study Rescue Agent]
+        Rescue -->|Generate short-term study plan\nfrom grounded materials| Plan[(Active Study Plan)]
+        Plan -->|Schedule reminders| FCM[Firebase Cloud Messaging]
+    end
+
+    subgraph Study Group Match
+        S2([Student]) -->|Share subjects, weak topics\n& availability| Match[Study Group Match Agent]
+        Match -->|Match compatible peers| Group[(Study Group)]
+        Group -->|Attach to| WB[Collaborative Whiteboard]
+    end
+```
