@@ -21,6 +21,7 @@
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF"
       },
+      "googleServicesFile": "./google-services.json",
       "package": "com.yx1nnn.aistudy4all"
     },
     "extra": {
